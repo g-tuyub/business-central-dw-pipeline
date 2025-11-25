@@ -1,5 +1,4 @@
-import sqlalchemy
-from sqlalchemy.orm import DeclarativeMeta, Mapped, mapped_column, DeclarativeBase
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
 from uuid import UUID
 from datetime import datetime
@@ -7,8 +6,8 @@ from .metadata import metadata
 
 
 class Base(DeclarativeBase):
-    __abstract__ = True
     metadata = metadata
+    pass
 
 
 class SystemFieldsMixin(DeclarativeBase):

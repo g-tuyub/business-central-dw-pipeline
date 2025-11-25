@@ -1,6 +1,6 @@
 from sqlalchemy import String, Index
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin, SurrogateKeyMixin
+from db.models.core.base import Base, SystemFieldsMixin, SurrogateKeyMixin
 
 
 class Currency(SurrogateKeyMixin, Base, SystemFieldsMixin):

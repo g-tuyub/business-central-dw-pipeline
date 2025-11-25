@@ -23,4 +23,6 @@ class Customer(BaseEntity):
     combine_shipments: Optional[bool] = Field(alias='combineShipments')
     dimension_1_code: Optional[str] = Field(alias='globalDimension1Code')
     dimension_2_code: Optional[str] = Field(alias='globalDimension2Code')
+    blocked: Optional[str]
+    priority: int
 
