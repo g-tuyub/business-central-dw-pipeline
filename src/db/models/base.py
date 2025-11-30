@@ -3,7 +3,7 @@ from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
 from sqlalchemy import Index
 from uuid import UUID
 from datetime import datetime
-from .metadata import metadata
+from db.models.metadata import metadata
 
 
 class Base(DeclarativeBase):
