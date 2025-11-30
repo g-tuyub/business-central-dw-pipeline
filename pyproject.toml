@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools","wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bc-etl-framework"
+version = "0.1.0"
+description  = "Modern data pipeline solution to extract data from Dynamics 365 Business Central into a SQL Server DataWarehouse."
+requires-python = ">=3.10"
+dependencies = [
+    "prefect===3.4.5",
+    "sqlalchemy>=2.0",
+    "msal",
+    "python-dotenv",
+    "pydantic>=2.0",
+    "pyodbc>=4.0",
+    "requests>=2.0"
+
+]
+[tool.setuptools.packages.find]
+where = ["src"]
