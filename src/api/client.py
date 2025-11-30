@@ -83,7 +83,7 @@ class BusinessCentralClient:
         order_by: str = None,
         select: List[str] = None,
         offset: int = None,
-        limit: int = None,
+        top: int = None,
         custom_filter: str = None
     ) -> Dict[str, str]:
 
@@ -113,8 +113,8 @@ class BusinessCentralClient:
         if offset:
             params["$skip"] = str(offset)
 
-        if limit:
-            params["$top"] = str(limit)
+        if top:
+            params["$top"] = str(top)
 
         return params
 
