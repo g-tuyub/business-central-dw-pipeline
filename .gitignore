@@ -6,7 +6,19 @@ venv/
 __pypackages__/
 __pycache__/
 tools
-
+*.egg-info/
+dist/
+build/
+develop-eggs/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg
 
 
 
