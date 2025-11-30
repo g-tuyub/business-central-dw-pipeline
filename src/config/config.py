@@ -4,7 +4,7 @@ from typing import Optional
 from pathlib import Path
 from dotenv import load_dotenv
 from config.config_block import ConfigBlock
-
+from sqlalchemy.engine import URL
 
 @dataclass
 class APIConfig:
@@ -30,16 +30,42 @@ class APIConfig:
 @dataclass
 class DBConfig:
 
-    username : str
-    password : str
     host : str
     database : str
     port : int = 1433
+    username : Optional[str] = None
+    password : Optional[str] = None
+    driver : Optional[str] = "ODBC Driver 17 for SQL Server"
+    trusted_connection : Optional[bool] = False
 
     @property
-    def connection_string(self) -> str:
-        return f"mssql+pyodbc://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?driver=ODBC+Driver+17+for+SQL+Server"
+    def connection_string(self) -> URL:
+        # Argumentos comunes
+        query_params = {"driver": self.driver,
+                        "TrustServerCertificate": "yes"}
 
+        if self.trusted_connection:
+            query_params["Trusted_Connection"] = "yes"
+
+            return URL.create(
+                drivername="mssql+pyodbc",
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                query=query_params
+            )
+
+        else:
+
+            return URL.create(
+                drivername="mssql+pyodbc",
+                username=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                query=query_params
+            )
 
 
 @dataclass
@@ -49,9 +75,13 @@ class Config:
     db : DBConfig
 
     @classmethod
-    def from_env(cls, env_path : Optional[Path], override : bool = False) -> 'Config':
+    def from_env(cls, env_path : Optional[Path] = None, override : bool = False) -> 'Config':
 
-        load_dotenv(dotenv_path=env_path,override=override)
+        if env_path is None:
+            load_dotenv(override=override)
+
+        else:
+            load_dotenv(dotenv_path=env_path,override=override)
 
         api_config = APIConfig(
             tenant_id =os.getenv("TENANT_ID"),
@@ -70,6 +100,7 @@ class Config:
             host =os.getenv('DATABASE_HOST'),
             database =os.getenv('DATABASE'),
             port =int(os.getenv('DATABASE_PORT') or 1433),
+            trusted_connection=(os.getenv('TRUSTED_CONNECTION', "0") == "1")
         )
 
         return cls(api=api_config, db=db_config)
