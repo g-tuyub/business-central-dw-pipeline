@@ -1,16 +1,10 @@
-from sqlalchemy import String, Integer, Index
+from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin
+from db.models.base import StagingBase
 
-class Vendor(Base, SystemFieldsMixin):
+
+class Vendor(StagingBase):
     __tablename__ = 'vendor'
-    __table_args__ = (
-        Index(None,"system_id",unique=True,mssql_clustered=True),
-        {"schema":"staging"}
-    )
-    __mapper_args__ = {
-        "primary_key": [SystemFieldsMixin.system_id]
-    }
 
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=True)

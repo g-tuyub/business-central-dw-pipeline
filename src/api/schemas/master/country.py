@@ -1,6 +1,6 @@
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Country(BaseEntity):
+class Country(BCEntityModel):
     code: str
     name: str

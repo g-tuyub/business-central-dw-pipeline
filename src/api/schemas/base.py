@@ -11,7 +11,7 @@ class Base(BaseModel):
     )
 
 
-class BaseEntity(Base):
+class BCEntityModel(Base):
     system_id: UUID = Field(alias='systemId')
     system_created_at: datetime = Field(alias='systemCreatedAt')
-    system_updated_at: datetime = Field(alias='systemUpdatedAt')
+    system_modified_at: datetime = Field(alias='systemModifiedAt')

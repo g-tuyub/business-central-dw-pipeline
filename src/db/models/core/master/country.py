@@ -1,17 +1,13 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin, SurrogateKeyMixin
+from db.models.base import CoreBase
 from sqlalchemy import String, Index
 
 
-class Country(SurrogateKeyMixin, Base, SystemFieldsMixin):
+class Country(CoreBase):
     __tablename__ = 'country'
-    __table_args__ = (
-        Index(None, "system_id", unique=True, mssql_clustered=False),
-        {
-            "schema":"core"
-        }
+    __additional_indexes__ = (
+        Index(None, 'code', unique=True),
     )
-
-    code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String(10), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=True)
 

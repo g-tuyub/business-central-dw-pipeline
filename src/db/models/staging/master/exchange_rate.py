@@ -1,15 +1,10 @@
-from sqlalchemy import String, Date, Float, Index
+from sqlalchemy import String, Date, Float
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin
+from db.models.base import StagingBase
 
 
-class ExchangeRate(Base, SystemFieldsMixin):
+class ExchangeRate(StagingBase):
     __tablename__ = "exchange_rate"
-    __table_args__ = (
-        Index(None, "system_id", unique=True, mssql_clustered=True),
-        {"schema": "staging"}
-    )
-    __mapper_args__ = {"primary_key": [SystemFieldsMixin.system_id]}
 
     currency_code: Mapped[str] = mapped_column(String(10), nullable=False)
     starting_date: Mapped[Date] = mapped_column(Date, nullable=False)

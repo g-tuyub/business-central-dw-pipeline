@@ -1,9 +1,9 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Location(BaseEntity):
+class Location(BCEntityModel):
     code: str
     name: Optional[str]
     country_code: Optional[str] = Field(default=None, alias='countryCode')

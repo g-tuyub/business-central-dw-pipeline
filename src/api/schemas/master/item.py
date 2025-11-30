@@ -1,13 +1,13 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Item(BaseEntity):
+class Item(BCEntityModel):
     code: str = Field(alias='no')
     name: Optional[str] = Field(alias='description')
     name_2: Optional[str] = Field(alias='description2')
-    bar_code: Optional[str] = Field(alias='GTIN')
+    bar_code: Optional[str] = Field(alias='gtin')
     item_type: Optional[str] = Field(alias='type')
     item_category_code: Optional[str] = Field(alias='itemCategoryCode')
     inventory_posting_group_code: Optional[str] = Field(alias='inventoryPostingGroup')

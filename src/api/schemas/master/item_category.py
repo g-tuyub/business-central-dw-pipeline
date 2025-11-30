@@ -1,9 +1,9 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class ItemCategory(BaseEntity):
+class ItemCategory(BCEntityModel):
     code: str = Field(alias='code')
     name: Optional[str] = Field(alias='description')
     parent_category_code: Optional[str] = Field(alias='parentCategory')

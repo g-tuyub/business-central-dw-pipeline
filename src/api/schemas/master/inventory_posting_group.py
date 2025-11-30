@@ -1,8 +1,8 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class InventoryPostingGroup(BaseEntity):
+class InventoryPostingGroup(BCEntityModel):
     code: str = Field(alias='code')
     name: Optional[str] = Field(alias='description')

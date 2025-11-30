@@ -1,17 +1,10 @@
-from sqlalchemy import String, Index
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin
+from db.models.base import StagingBase
 
 
-class ShipToAddress(Base, SystemFieldsMixin):
+class ShipToAddress(StagingBase):
     __tablename__ = "ship_to_address"
-    __table_args__ = (
-        Index(None, "system_id", unique=True, mssql_clustered=True),
-        {"schema": "staging"}
-    )
-    __mapper_args__ = {
-        "primary_key": [SystemFieldsMixin.system_id]
-    }
 
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     customer_code: Mapped[str] = mapped_column(String(20), nullable=False)

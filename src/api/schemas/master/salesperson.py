@@ -1,9 +1,9 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Salesperson(BaseEntity):
+class Salesperson(BCEntityModel):
     code: str
     name: Optional[str] = None
     job_title: Optional[str] = Field(default=None, alias='jobTitle')

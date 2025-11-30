@@ -1,16 +1,16 @@
 from sqlalchemy import String, Boolean, Integer, Index, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from db.models.base import Base, SystemFieldsMixin, SurrogateKeyMixin
+from sqlalchemy.orm import Mapped, mapped_column
+from db.models.base import CoreBase
 
 
-class ItemCategory(SurrogateKeyMixin, Base, SystemFieldsMixin):
+class ItemCategory(CoreBase):
     __tablename__ = "item_category"
-    __table_args__ = (
-        Index(None, "system_id", unique=True, mssql_clustered=False),
-        {"schema": "core"}
+    __additional_indexes__ = (
+        Index(None, "code", unique=True),
     )
 
-    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=True)
-    parent_category_id: Mapped[int] = mapped_column(Integer, ForeignKey("core.item_category.id"), nullable=True)
+    parent_category_id: Mapped[int] = mapped_column(Integer, nullable=True,index=True)
+    parent_category_code: Mapped[str] = mapped_column(String(20), nullable=True)
     has_children: Mapped[bool] = mapped_column(Boolean)

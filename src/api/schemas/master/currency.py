@@ -1,8 +1,8 @@
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Currency(BaseEntity):
+class Currency(BCEntityModel):
     code: str
     name: str = Field(alias='description')
     iso_code: str = Field(alias='isoCode')

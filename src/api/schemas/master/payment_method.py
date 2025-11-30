@@ -1,8 +1,8 @@
 from pydantic import Field
 from typing import Optional
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class PaymentMethod(BaseEntity):
+class PaymentMethod(BCEntityModel):
     code: str
     name: Optional[str] = Field(alias='description')

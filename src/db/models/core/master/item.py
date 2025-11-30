@@ -1,23 +1,25 @@
 from sqlalchemy import String, Float, Boolean, Integer, Index, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from db.models.base import Base, SystemFieldsMixin, SurrogateKeyMixin
+from db.models.base import CoreBase
 
 
-class Item(SurrogateKeyMixin, Base, SystemFieldsMixin):
+class Item(CoreBase):
     __tablename__ = "item"
-    __table_args__ = (
-        Index(None, "system_id", unique=True, mssql_clustered=False),
-        {"schema": "core"}
+    __additional_indexes__ = (
+        Index(None, "code", unique=True),
     )
 
-    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=True)
     name_2: Mapped[str] = mapped_column(String(100), nullable=True)
     bar_code: Mapped[str] = mapped_column(String(20), nullable=True)
     item_type: Mapped[str] = mapped_column(String(20), nullable=True)
-    item_category_id: Mapped[int] = mapped_column(Integer, ForeignKey("core.item_category.id"), nullable=True)
-    inventory_posting_group_id: Mapped[int] = mapped_column(Integer, ForeignKey("core.inventory_posting_group.id"),nullable=True)
-    country_of_origin_id: Mapped[int] = mapped_column(Integer, ForeignKey("core.country.id"), nullable=True)
+    item_category_id: Mapped[int] = mapped_column(Integer,nullable=True,index=True)
+    item_category_code: Mapped[str] = mapped_column(String(20), nullable=True)
+    inventory_posting_group_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    inventory_posting_group_code: Mapped[str] = mapped_column(String(20), nullable=True)
+    country_of_origin_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    country_of_origin_code: Mapped[str] = mapped_column(String(10), nullable=True, index=True)
     base_unit_of_measure_code: Mapped[str] = mapped_column(String(10), nullable=True)
     dimension_1_code: Mapped[str] = mapped_column(String(20), nullable=True)
     dimension_2_code: Mapped[str] = mapped_column(String(20), nullable=True)

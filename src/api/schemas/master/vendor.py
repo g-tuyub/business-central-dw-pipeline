@@ -1,9 +1,9 @@
 from typing import Optional
 from pydantic import Field
-from api.schemas.base import BaseEntity
+from api.schemas.base import BCEntityModel
 
 
-class Vendor(BaseEntity):
+class Vendor(BCEntityModel):
     code: str = Field(alias='no')
     name: Optional[str]
     vendor_posting_group_code: Optional[str] = Field(default=None, alias='vendorPostingGroup')
