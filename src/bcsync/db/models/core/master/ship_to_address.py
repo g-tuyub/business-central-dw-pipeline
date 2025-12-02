@@ -5,10 +5,6 @@ from bcsync.db.models.base import CoreBase
 
 class ShipToAddress(CoreBase):
     __tablename__ = "ship_to_address"
-    __additional_indexes__ = (
-        UniqueConstraint("customer_id", "code"),
-    )
-
 
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     customer_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)

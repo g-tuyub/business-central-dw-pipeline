@@ -21,10 +21,19 @@ Uso:
 
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declared_attr
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
-from sqlalchemy import Index, text, event, Table, Connection
+from sqlalchemy import Index, UniqueConstraint, text, event, Table, Connection
 from uuid import UUID
 from datetime import datetime
 from bcsync.db.models.metadata import metadata
+from enum import StrEnum, auto
+
+class DBSchemas(StrEnum):
+    """
+    Esquemas físicos del Data Warehouse, centralizados aquí.
+    """
+    STAGING = auto()
+    CORE = auto()
+    SEMANTIC = auto()
 
 
 class Base(DeclarativeBase):
@@ -65,6 +74,11 @@ class BCSystemFieldsMixin:
     system_modified_by_id: Mapped[UUID] = mapped_column(
         UNIQUEIDENTIFIER(as_uuid=True),
         nullable=True,
+        sort_order=999
+    )
+    company_id: Mapped[UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        nullable=False,
         sort_order=999
     )
 
@@ -109,7 +123,7 @@ class StagingBase(Base, BCSystemFieldsMixin):
     @declared_attr
     def __table_args__(cls):
         return (
-            {"schema": "staging"},
+            {"schema": DBSchemas.STAGING},
         )
 
 
@@ -131,7 +145,7 @@ class CoreBase(Base, BCSystemFieldsMixin, DWAuditFieldsMixin):
     @declared_attr
     def __table_args__(cls):
         base_indexes = (
-            Index(None, "system_id", unique=True),
+            UniqueConstraint("system_id","company_id"),
             Index(None, "system_modified_at"),
         )
 
@@ -140,7 +154,7 @@ class CoreBase(Base, BCSystemFieldsMixin, DWAuditFieldsMixin):
         enforce_fk_constraints = getattr(cls, '__enforce_fk_constraints__', False)
         return base_indexes + additional_indexes + (
             {
-                'schema': "core",
+                'schema': DBSchemas.CORE,
                 'info': {'enforce_fk_constraints': enforce_fk_constraints},
             },
         )
@@ -164,7 +178,30 @@ def disable_fks_listener(target: Table, connection: Connection, **kw):
     if target.info.get('enforce_fk_constraints'):
         return
     table_name = f"[{target.schema or 'dbo'}].[{target.name}]"
-    connection.execute(text(f"ALTER TABLE {table_name} NOCHECK CONSTRAINT ALL"))
+    connection.execute(
+        text(
+            f"ALTER TABLE {table_name} NOCHECK CONSTRAINT ALL"
+        )
+    )
 
 
+def create_schemas_listener(target : Table, connection : Connection, **kw):
+    """
+    Event Listener ejecutado antes de crear las tablas.
+
+    Verifica si los esquemas existen en la BD, si no, los crea.
+    """
+
+    for schema in DBSchemas:
+        schema_name = schema.value
+        connection.execute(
+            text(f""""IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{schema_name}')
+                        BEGIN 
+                            EXEC('CREATE SCHEMA {schema_name}')
+                        END
+                """)
+        )
+#vinculando eventos al objeto metadata
+event.listen(Base.metadata,'before_create', create_schemas_listener)
 event.listen(Base.metadata, 'after_create', disable_fks_listener)
+

@@ -5,9 +5,6 @@ from bcsync.db.models.base import CoreBase
 
 class Customer(CoreBase):
     __tablename__ = "customer"
-    __additional_indexes__ = (
-        Index(None, "code", unique=True),
-    )
 
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=True)

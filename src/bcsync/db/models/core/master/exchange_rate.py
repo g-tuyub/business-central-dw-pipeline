@@ -5,9 +5,6 @@ from bcsync.db.models.base import CoreBase
 
 class ExchangeRate(CoreBase):
     __tablename__ = "exchange_rate"
-    __additional_indexes__ = (
-        UniqueConstraint("currency_code", "starting_date"),
-    )
 
     currency_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     currency_code: Mapped[str] = mapped_column(String(10), nullable=False)

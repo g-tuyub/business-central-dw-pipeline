@@ -3,14 +3,12 @@ import requests
 import urllib.parse
 from typing import Generator, List, Dict, Any
 from datetime import datetime
-
 from msal import ConfidentialClientApplication
-
 from bcsync.config.config import APIConfig
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class BusinessCentralClient:
     def __init__(self, config: APIConfig) -> None:
@@ -21,12 +19,11 @@ class BusinessCentralClient:
             "Content-Type": "application/json"
         })
         self.base_url = self.config.base_url
+        self.company_id = self.config.company_id
         self.authority = self.config.authority
         self.scopes = ["https://api.businesscentral.dynamics.com/.default"]
-
         self.access_token = None
         self._refresh_token()
-
 
     def _refresh_token(self):
 
@@ -78,13 +75,13 @@ class BusinessCentralClient:
 
     @staticmethod
     def create_query_parameters(
-        last_created_at: datetime = None,
-        last_modified_at: datetime = None,
-        order_by: str = None,
-        select: List[str] = None,
-        offset: int = None,
-        top: int = None,
-        custom_filter: str = None
+            last_created_at: datetime = None,
+            last_modified_at: datetime = None,
+            order_by: str = None,
+            select: List[str] = None,
+            offset: int = None,
+            top: int = None,
+            custom_filter: str = None
     ) -> Dict[str, str]:
 
         params = {"$schemaversion": "1.0"}
@@ -145,11 +142,15 @@ class BusinessCentralClient:
 
         for page in self._get_pages(endpoint, params):
             for record in page:
+                record['company_id'] = str(self.company_id)
                 yield record
-
 
     def iter_pages(self, endpoint: str, **kwargs) -> Generator[List[Dict[str, Any]], None, None]:
 
         params = self.create_query_parameters(**kwargs)
 
-        yield from self._get_pages(endpoint, params)
+        for page in self._get_pages(endpoint, params):
+            for record in page:
+                record['company_id'] = str(self.company_id)
+
+            yield page
