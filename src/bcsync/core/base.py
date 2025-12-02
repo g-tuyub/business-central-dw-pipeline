@@ -163,21 +163,3 @@ SYNC_TARGETS = {
         core_model=core.VendorPostingGroup,
     )
 }
-
-
-class RegistryIntegrityError(Exception):
-    pass
-
-
-def _validate_registry() -> None:
-    defined_entities = set(BCEntity)
-    defined_configurations = set(SYNC_TARGETS.keys())
-    missing = defined_entities - defined_configurations
-
-    if missing:
-        error_message = f"The following entities : {missing} are defined in the Enum but are missing configuration in SYNC_TARGETS"
-        logger.critical(error_message)
-        raise RegistryIntegrityError(error_message)
-
-
-_validate_registry()

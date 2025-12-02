@@ -116,7 +116,7 @@ class StagingBase(Base, BCSystemFieldsMixin):
 # noinspection PyMethodParameters
 class CoreBase(Base, BCSystemFieldsMixin, DWAuditFieldsMixin):
     """Clase base abstracta para todos los modelos de la capa core.
-    Cualquier modelo de core (DW) debe de heredar de esta clase, lo cual garantiza:
+    Cualquier modelo del esquema core (DW) debe de heredar de esta clase, lo cual garantiza:
 
     - heredar la PK física (surrogate key) id INT IDENTITY
     - heredar los índices en system_id y system_modified_at

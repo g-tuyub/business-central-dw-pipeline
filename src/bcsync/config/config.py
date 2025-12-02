@@ -14,14 +14,13 @@ class APIConfig:
     client_secret : str
     company_id : str
     environment : str
-
     publisher : str
     group : str
     version : str
 
     @property
     def base_url(self) -> str:
-        return f"https://api.businesscentral.dynamics.com/v2.0/{self.environment}/api/{self.publisher}/{self.group}/{self.version}/"
+        return f"https://api.businesscentral.dynamics.com/v2.0/{self.environment}/api/{self.publisher}/{self.group}/{self.version}/companies({self.company_id})"
 
     @property
     def authority(self) -> str:
