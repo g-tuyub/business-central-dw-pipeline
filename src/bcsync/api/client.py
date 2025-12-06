@@ -142,7 +142,7 @@ class BusinessCentralClient:
 
         for page in self._get_pages(endpoint, params):
             for record in page:
-                record['company_id'] = str(self.company_id)
+                record['companyId'] = str(self.company_id)
                 yield record
 
     def iter_pages(self, endpoint: str, **kwargs) -> Generator[List[Dict[str, Any]], None, None]:
@@ -151,6 +151,6 @@ class BusinessCentralClient:
 
         for page in self._get_pages(endpoint, params):
             for record in page:
-                record['company_id'] = str(self.company_id)
+                record['companyId'] = str(self.company_id)
 
             yield page
