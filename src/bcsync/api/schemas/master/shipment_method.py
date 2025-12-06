@@ -1,8 +1,9 @@
 from pydantic import Field
 from typing import Optional
 from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.types import BCString
 
 
 class ShipmentMethod(BCEntityModel):
     code: str
-    name: Optional[str] = Field(alias='description')
+    name: BCString = Field(alias='description')

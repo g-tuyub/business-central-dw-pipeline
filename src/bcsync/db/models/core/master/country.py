@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from bcsync.db.models.base import CoreBase
-from sqlalchemy import String, Index
+from sqlalchemy import String
 
 
 class Country(CoreBase):

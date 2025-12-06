@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, BeforeValidator
 from uuid import UUID
 from datetime import datetime
 
@@ -13,5 +13,8 @@ class Base(BaseModel):
 
 class BCEntityModel(Base):
     system_id: UUID = Field(alias='systemId')
+    company_id: UUID = Field(alias='companyId')
     system_created_at: datetime = Field(alias='systemCreatedAt')
     system_modified_at: datetime = Field(alias='systemModifiedAt')
+    system_created_by_id: UUID = Field(alias='systemCreatedBy')
+    system_modified_by_id: UUID = Field(alias='systemModifiedBy')

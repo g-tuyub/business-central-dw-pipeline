@@ -1,12 +1,13 @@
 from typing import Optional
 from pydantic import Field
 from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.types import BCString
 
 
 class Location(BCEntityModel):
     code: str
-    name: Optional[str]
-    country_code: Optional[str] = Field(default=None, alias='countryCode')
-    postal_code: Optional[str] = Field(default=None, alias='postCode')
-    address_line_1: Optional[str] = Field(default=None, alias='address')
-    address_line_2: Optional[str] = Field(default=None, alias='address2')
+    name: BCString
+    country_code: BCString = Field(alias='countryCode')
+    postal_code: BCString = Field(alias='postCode')
+    address_line_1: BCString = Field(alias='address')
+    address_line_2: BCString = Field(alias='address2')

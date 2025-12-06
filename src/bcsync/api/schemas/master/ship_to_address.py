@@ -1,13 +1,14 @@
 from typing import Optional
 from pydantic import Field
 from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.types import BCString
 
 
 class ShipToAddress(BCEntityModel):
     code: str
     customer_code: str = Field(alias='customerNo')
-    country_code: Optional[str] = Field(default=None, alias='countryCode')
-    city: Optional[str] = None
-    postal_code: Optional[str] = Field(default=None, alias='postCode')
-    address_line_1: Optional[str] = Field(default=None, alias='address')
-    address_line_2: Optional[str] = Field(default=None, alias='address2')
+    country_code: BCString = Field(alias='countryCode')
+    city: BCString
+    postal_code: BCString = Field(alias='postCode')
+    address_line_1: BCString = Field(alias='address')
+    address_line_2: BCString = Field(alias='address2')

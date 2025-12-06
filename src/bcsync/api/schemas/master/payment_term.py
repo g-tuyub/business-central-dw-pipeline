@@ -1,8 +1,8 @@
 from typing import Optional
 from pydantic import Field
 from bcsync.api.schemas.base import BCEntityModel
-
+from bcsync.api.schemas.types import BCString
 
 class PaymentTerm(BCEntityModel):
     code: str
-    name: Optional[str] = Field(alias='description')
+    name: BCString = Field(alias='description')

@@ -2,7 +2,7 @@
 bcsync.db.models.base
 ~~~~~~~~~~~~~~~~~~~~~
 En este módulo se definen las clases Base del ORM para el sistema de sincronización al Data Warehouse:
-Se estandariza el comportamiento de cada esquema (staging, core) usando composición y herencia de clases.
+Se estandariza el comportamiento de cada esquema (staging, core).
 
 Uso:
 
@@ -21,19 +21,11 @@ Uso:
 
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declared_attr
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
-from sqlalchemy import Index, UniqueConstraint, text, event, Table, Connection
+from sqlalchemy import Index, UniqueConstraint, text, event, Connection
 from uuid import UUID
 from datetime import datetime
 from bcsync.db.models.metadata import metadata
-from enum import StrEnum, auto
-
-class DBSchemas(StrEnum):
-    """
-    Esquemas físicos del Data Warehouse, centralizados aquí.
-    """
-    STAGING = auto()
-    CORE = auto()
-    SEMANTIC = auto()
+from bcsync.db.schemas import DBSchemas
 
 
 class Base(DeclarativeBase):
@@ -51,6 +43,11 @@ class BCSystemFieldsMixin:
         https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-table-system-fields.
     """
     system_id: Mapped[UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        nullable=False,
+        sort_order=999
+    )
+    company_id: Mapped[UUID] = mapped_column(
         UNIQUEIDENTIFIER(as_uuid=True),
         nullable=False,
         sort_order=999
@@ -76,11 +73,7 @@ class BCSystemFieldsMixin:
         nullable=True,
         sort_order=999
     )
-    company_id: Mapped[UUID] = mapped_column(
-        UNIQUEIDENTIFIER(as_uuid=True),
-        nullable=False,
-        sort_order=999
-    )
+
 
 
 class DWAuditFieldsMixin:
@@ -113,17 +106,17 @@ class StagingBase(Base, BCSystemFieldsMixin):
 
     - heredar la condición de PK Lógica en system_id, y no tener PK real, ya que todas las tablas de staging conceptualmente son heaps para agilizar el bulk insert.
 
-    - heredar el esquema, por lo que la tabla será definida dentro del esquema 'staging'.
+    - heredar el esquema, por lo que la tabla será creada dentro del esquema de staging.
     """
     __abstract__ = True
     __mapper_args__ = {
-        "primary_key": [BCSystemFieldsMixin.system_id]  # logical PK on staging, not enforced
+        "primary_key": [BCSystemFieldsMixin.system_id, BCSystemFieldsMixin.company_id]  # logical PK on staging, not enforced
     }
 
     @declared_attr
     def __table_args__(cls):
         return (
-            {"schema": DBSchemas.STAGING},
+            {"schema": DBSchemas.STAGING}
         )
 
 
@@ -161,31 +154,29 @@ class CoreBase(Base, BCSystemFieldsMixin, DWAuditFieldsMixin):
 
 
 #logical FKs on core by default, not enforced
-def disable_fks_listener(target: Table, connection: Connection, **kw):
+def disable_fks_listener(target, connection: Connection, **kw):
     """
         Event Listener ejecutado después de crear todas las tablas.
-
         Ejecuta la sentencia `ALTER TABLE ... NOCHECK CONSTRAINT ALL` en todas las tablas de la capa Core (DW).
 
         Motivación:
-
         - Permitir la carga de 'Late Arriving Dimensions' en el DW.
-
         - Mejorar el rendimiento del bulk insert.
-
         - Mantener la metadata de relaciones visible para herramientas como Power BI.
         """
-    if target.info.get('enforce_fk_constraints'):
-        return
-    table_name = f"[{target.schema or 'dbo'}].[{target.name}]"
-    connection.execute(
-        text(
+    for table in target.tables.values():
+
+        if table.info.get('enforce_fk_constraints'):
+            return
+        table_name = f"[{table.schema or 'dbo'}].[{table.name}]"
+        connection.execute(
+            text(
             f"ALTER TABLE {table_name} NOCHECK CONSTRAINT ALL"
+            )
         )
-    )
 
 
-def create_schemas_listener(target : Table, connection : Connection, **kw):
+def create_schemas_listener(target, connection : Connection, **kw):
     """
     Event Listener ejecutado antes de crear las tablas.
 
@@ -195,7 +186,7 @@ def create_schemas_listener(target : Table, connection : Connection, **kw):
     for schema in DBSchemas:
         schema_name = schema.value
         connection.execute(
-            text(f""""IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{schema_name}')
+            text(f"""IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{schema_name}')
                         BEGIN 
                             EXEC('CREATE SCHEMA {schema_name}')
                         END

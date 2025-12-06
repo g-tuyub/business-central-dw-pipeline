@@ -1,4 +1,4 @@
-from sqlalchemy import String, Index
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 from bcsync.db.models.base import CoreBase
 
