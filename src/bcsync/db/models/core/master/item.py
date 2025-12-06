@@ -1,6 +1,6 @@
-from sqlalchemy import String, Float, Boolean, Integer, Index
+from sqlalchemy import String, Float, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from bcsync.db.models.base import CoreBase
+from bcsync.db.models.base import CoreBase, DBSchemas
 
 
 class Item(CoreBase):
@@ -11,13 +11,11 @@ class Item(CoreBase):
     name_2: Mapped[str] = mapped_column(String(100), nullable=True)
     bar_code: Mapped[str] = mapped_column(String(20), nullable=True)
     item_type: Mapped[str] = mapped_column(String(20), nullable=True)
-    item_category_id: Mapped[int] = mapped_column(Integer,nullable=True,index=True)
+    item_category_id: Mapped[int] = mapped_column(Integer, ForeignKey(f'{DBSchemas.CORE}.item_category.id'), nullable=True,index=True)
     item_category_code: Mapped[str] = mapped_column(String(20), nullable=True)
-    inventory_posting_group_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    inventory_posting_group_id: Mapped[int] = mapped_column(Integer, ForeignKey(f'{DBSchemas.CORE}.inventory_posting_group.id'), nullable=True, index=True)
     inventory_posting_group_code: Mapped[str] = mapped_column(String(20), nullable=True)
-    country_of_origin_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
-    country_of_origin_code: Mapped[str] = mapped_column(String(10), nullable=True, index=True)
-    base_unit_of_measure_code: Mapped[str] = mapped_column(String(10), nullable=True)
+    base_unit_of_measure_code: Mapped[str] = mapped_column(String(10), nullable=True) #degenerate dimension
     dimension_1_code: Mapped[str] = mapped_column(String(20), nullable=True)
     dimension_2_code: Mapped[str] = mapped_column(String(20), nullable=True)
     unit_price: Mapped[float] = mapped_column(Float, nullable=True)

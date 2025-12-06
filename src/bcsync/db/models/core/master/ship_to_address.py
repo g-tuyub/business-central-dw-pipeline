@@ -1,15 +1,15 @@
-from sqlalchemy import String, Integer, UniqueConstraint
+from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from bcsync.db.models.base import CoreBase
+from bcsync.db.models.base import CoreBase, DBSchemas
 
 
 class ShipToAddress(CoreBase):
     __tablename__ = "ship_to_address"
 
     code: Mapped[str] = mapped_column(String(20), nullable=False)
-    customer_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    customer_id: Mapped[int] = mapped_column(Integer, ForeignKey(f'{DBSchemas.CORE}.customer.id'), nullable=True, index=True)
     customer_code: Mapped[str] = mapped_column(String(20), nullable=False)
-    country_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    country_id: Mapped[int] = mapped_column(Integer, ForeignKey(f'{DBSchemas.CORE}.country.id'), nullable=True, index=True)
     country_code: Mapped[str] = mapped_column(String(10), nullable=True)
     city: Mapped[str] = mapped_column(String(50), nullable=True)
     postal_code: Mapped[str] = mapped_column(String(20), nullable=True)

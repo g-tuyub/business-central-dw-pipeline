@@ -1,6 +1,6 @@
-from sqlalchemy import String, Integer, Index
+from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from bcsync.db.models.base import CoreBase
+from bcsync.db.models.base import CoreBase, DBSchemas
 
 
 class Location(CoreBase):
@@ -11,5 +11,5 @@ class Location(CoreBase):
     postal_code: Mapped[str] = mapped_column(String(20), nullable=True)
     address_line_1: Mapped[str] = mapped_column(String(100), nullable=True)
     address_line_2: Mapped[str] = mapped_column(String(50), nullable=True)
-    country_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    country_id: Mapped[int] = mapped_column(Integer, ForeignKey(f'{DBSchemas.CORE}.country.id'), nullable=True, index=True)
     country_code: Mapped[str] = mapped_column(String(10), nullable=True)

@@ -1,9 +1,9 @@
 import time
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, select, func, text
-from bcsync.api import BusinessCentralClient
+from bcsync.api.client import BusinessCentralClient
 from bcsync.db.engine import get_engine
-from bcsync.config import Config
+from bcsync.config.config import Config
 import logging
 from typing import List, Optional
 from bcsync.core.base import BCEntity, EntitySyncConfig, SYNC_TARGETS
@@ -22,9 +22,8 @@ def sync_entity(db_engine: Engine, api_client: BusinessCentralClient, sync_confi
 
     with Session(db_engine) as session:
         last_modified = session.scalar(
-            select(
-                func.max(sync_config.core_model.system_modified_at)
-            )
+            select(func.max(sync_config.core_model.system_modified_at))
+            .where(sync_config.core_model.company_id == api_client.company_id)
         )
 
         logger.info(f"performing TRUNCATE TABLE on : {sync_config.staging_table}")
@@ -78,7 +77,7 @@ def sync_entity(db_engine: Engine, api_client: BusinessCentralClient, sync_confi
         f"A total of {run_metrics['total_rows_inserted']} rows were inserted to staging. Elapsed time: {total_time} seconds")
 
 
-def sync_all_entities(config : Optional[Config] = None, entities_to_sync: Optional[List[BCEntity]] = None):
+def run_sync(config : Optional[Config] = None, entities_to_sync: Optional[List[BCEntity]] = None):
     config = config or Config.from_env()
     engine = get_engine(config.db.connection_string)
     client = BusinessCentralClient(config=config.api)
@@ -95,3 +94,5 @@ def sync_all_entities(config : Optional[Config] = None, entities_to_sync: Option
     for sync_config in targets:
             sync_entity(db_engine=engine, api_client=client, sync_config=sync_config)
 
+if __name__ == "__main__":
+    run_sync(entities_to_sync=[BCEntity.CUSTOMER,BCEntity.COUNTRY, BCEntity.CURRENCY, BCEntity.CUSTOMER_PRICE_GROUP, BCEntity.CUSTOMER_POSTING_GROUP,BCEntity.EXCHANGE_RATE,BCEntity.LOCATION, BCEntity.PAYMENT_TERM, BCEntity.PAYMENT_METHOD, BCEntity.SALESPERSON, BCEntity.SHIP_TO_ADDRESS,BCEntity.SHIPMENT_METHOD,BCEntity.VENDOR, BCEntity.VENDOR_POSTING_GROUP])
