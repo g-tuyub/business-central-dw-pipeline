@@ -1,0 +1,83 @@
+-- =============================================
+-- Author:		gtuyub
+-- Create Date: 01/12/2025
+-- Description:	Repairs late arriving dimensions using "Unknown dimension" strategy.
+--              Updates surrogate keys in customer records that were temporarily set to @unknown_id,
+--              by looking up matching records in reference tables based on natural keys.
+-- Returns:     - Number of rows fixed.
+-- =============================================
+CREATE OR ALTER PROCEDURE [{{core_schema }}].[fix_customer_unresolved_references]
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    {% include 'partials/common_constants.sql.j2' %}
+
+    DECLARE @rows_affected INT = 0;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        -- =========================================================================
+        -- JOIN to reference tables and UPDATE clause
+        -- =========================================================================
+
+            UPDATE c
+            SET
+                -- If surrogate key in target table is @unknown_id (unresolved reference) and a match is found, repairs the value.
+                -- If no match is found, keep the original value (@unknown_id).
+                -- If the surrogate key in target table is not @unknown_id, keep the original value.
+                c.customer_posting_group_id = IIF(c.customer_posting_group_id = @unknown_id, COALESCE(cpg.id, @unknown_id), c.customer_posting_group_id),
+                c.customer_price_group_id   = IIF(c.customer_price_group_id = @unknown_id,   COALESCE(cprg.id, @unknown_id), c.customer_price_group_id),
+                c.currency_id               = IIF(c.currency_id = @unknown_id,               COALESCE(cu.id, @unknown_id),   c.currency_id),
+                c.payment_term_id           = IIF(c.payment_term_id = @unknown_id,           COALESCE(pt.id, @unknown_id),   c.payment_term_id),
+                c.payment_method_id         = IIF(c.payment_method_id = @unknown_id,         COALESCE(pm.id, @unknown_id),   c.payment_method_id),
+                c.salesperson_id            = IIF(c.salesperson_id = @unknown_id,            COALESCE(s.id, @unknown_id),    c.salesperson_id),
+                c.shipment_method_id        = IIF(c.shipment_method_id = @unknown_id,        COALESCE(sm.id, @unknown_id),   c.shipment_method_id),
+                c.location_id               = IIF(c.location_id = @unknown_id,               COALESCE(l.id, @unknown_id),    c.location_id),
+                c.country_id                = IIF(c.country_id = @unknown_id,                COALESCE(co.id, @unknown_id),   c.country_id)
+            -- LEFT JOIN to lookup tables using the natural key, to find matching values
+            FROM [{{core_schema }}].[customer] AS c
+            LEFT JOIN [{{core_schema }}].[customer_posting_group] AS cpg  ON c.customer_posting_group_code = cpg.code AND c.company_id = cpg.company_id
+            LEFT JOIN [{{core_schema }}].[customer_price_group]   AS cprg ON c.customer_price_group_code = cprg.code AND c.company_id = cprg.company_id
+            LEFT JOIN [{{core_schema }}].[currency]               AS cu   ON c.currency_code = cu.code AND c.company_id = cu.company_id
+            LEFT JOIN [{{core_schema }}].[payment_term]           AS pt   ON c.payment_term_code = pt.code AND c.company_id = pt.company_id
+            LEFT JOIN [{{core_schema }}].[payment_method]         AS pm   ON c.payment_method_code = pm.code AND c.company_id = pm.company_id
+            LEFT JOIN [{{core_schema }}].[salesperson]            AS s    ON c.salesperson_code = s.code AND c.company_id = s.company_id
+            LEFT JOIN [{{core_schema }}].[shipment_method]        AS sm   ON c.shipment_method_code = sm.code AND c.company_id = sm.company_id
+            LEFT JOIN [{{core_schema }}].[location]               AS l    ON c.location_code = l.code AND c.company_id = l.company_id
+            LEFT JOIN [{{core_schema }}].[country]                AS co   ON c.country_code = co.code AND c.company_id = co.company_id
+
+            WHERE
+        -- =========================================================================
+        -- Filter optimization
+        -- =========================================================================
+                -- affects only rows where at least one surrogate key is @unknown_id AND at least one matching reference record exists.
+
+                (c.customer_posting_group_id = @unknown_id AND cpg.id IS NOT NULL)
+                OR (c.customer_price_group_id = @unknown_id AND cprg.id IS NOT NULL)
+                OR (c.currency_id = @unknown_id             AND cu.id IS NOT NULL)
+                OR (c.payment_term_id = @unknown_id         AND pt.id IS NOT NULL)
+                OR (c.payment_method_id = @unknown_id       AND pm.id IS NOT NULL)
+                OR (c.salesperson_id = @unknown_id          AND s.id IS NOT NULL)
+                OR (c.shipment_method_id = @unknown_id      AND sm.id IS NOT NULL)
+                OR (c.location_id = @unknown_id             AND l.id IS NOT NULL)
+                OR (c.country_id = @unknown_id              AND co.id IS NOT NULL);
+
+            SET @rows_affected = @@ROWCOUNT;
+
+        COMMIT TRANSACTION;
+
+        -- Returns the number of fixed rows
+        SELECT @rows_affected AS [RowsFixed];
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        THROW;
+    END CATCH
+END;
+GO

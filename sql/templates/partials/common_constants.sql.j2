@@ -1,0 +1,16 @@
+
+    -- default null value for UUID types on BC
+    DECLARE @null_uuid UNIQUEIDENTIFIER = '{{ null_uuid }}';
+
+    DECLARE @null_company_id UNIQUEIDENTIFIER = '{{null_uuid}}'
+
+    -- default minimum value for datetime types on BC
+    DECLARE @min_system_datetime DATETIME2 = '{{ min_datetime }}';
+
+    -- unknown member id
+    DECLARE @unknown_id INT = {{ unknown_id }};
+
+    DECLARE @unknown_text VARCHAR(20) = '{{ unknown_text }}';
+
+
+    -- =========================================================================
