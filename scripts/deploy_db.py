@@ -1,27 +1,21 @@
-from bcsync.db.engine import create_engine
-from bcsync.config.config import  Config
-from bcsync.db.models.base import Base
-from bcsync.db.models import staging, core
-import sys
 import logging
+from bcsync.config.config import Config
+from bcsync.db.deploy import create_tables_and_schema, deploy_procedures
+from bcsync.db.engine import get_engine
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def deploy_db() -> None:
-    try:
-        config = Config.from_env()
-        engine = create_engine(config.db.connection_string)
-        logger.info(f"Connected to {config.db.connection_string}")
-
-        Base.metadata.create_all(engine)
-
-        logger.info(f"SUCCESFUL db deployment!")
-
-    except Exception as e:
-        logger.error(f"FAILED db deployment!, error : {e}")
-        sys.exit(1)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s',
+    datefmt='%H:%M:%S'
+)
 
 
-if __name__ == "__main__":
-    deploy_db()
+def main()-> None:
+    config = Config.from_env()
+    engine = get_engine(config.db.connection_string)
+    create_tables_and_schema(engine)
+    deploy_procedures(engine)
+
+
+if __name__ == '__main__':
+    main()
