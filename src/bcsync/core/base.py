@@ -1,14 +1,11 @@
-import logging
 from dataclasses import dataclass
-from typing import Type
+from typing import Type, Optional
 from enum import StrEnum
 from bcsync.db.models.base import StagingBase, CoreBase
 from bcsync.api.schemas.base import BCEntityModel
 from bcsync.api import schemas
 from bcsync.db.models import staging
 from bcsync.db.models import core
-
-logger = logging.getLogger(__name__)
 
 
 class BCEntity(StrEnum):
@@ -37,6 +34,8 @@ class EntitySyncConfig:
     validator_model: Type[BCEntityModel]
     staging_model: Type[StagingBase]
     core_model: Type[CoreBase]
+    loader_procedure : Optional[str] = None
+    fixer_procedure : Optional[str] = None
 
     @property
     def staging_table(self) -> str:
@@ -56,7 +55,15 @@ class EntitySyncConfig:
 
     @property
     def loader_sp(self):
-        return f"{self.core_schema}.sp_load_{self.core_table}"
+        #if not specified defaults to the convention, since all tables must have a loader_sp
+        loader_sp = self.loader_procedure or f"{self.core_schema}.sp_load_{self.core_table}"
+        return loader_sp
+
+    @property
+    def fixer_sp(self):
+        #if not specified returns None, since some tables do not require a fixer_sp
+        return self.fixer_procedure
+
 
 
 SYNC_TARGETS = {
