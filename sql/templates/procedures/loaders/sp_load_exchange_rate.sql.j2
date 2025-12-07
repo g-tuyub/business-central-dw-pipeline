@@ -1,0 +1,155 @@
+-- =============================================
+-- Author:		gtuyub
+-- Create Date: 01/12/2025
+-- Description:	Loads records from {{staging_schema }} to {{ core_schema }} layer.
+--              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
+--              This record is created once and reused for all missing references.
+--              Inserts unknown member if missing, then merges data resolving surrogate keys,
+--              using system_id + company_id for matching (essential for multi-company DW).
+--              Updates existing records only if source has newer system_modified_at.
+-- Returns:     - Number of rows inserted.
+--              - Number of rows updated.
+-- =============================================
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_exchange_rate]
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+
+    DECLARE @merge_stats TABLE
+                         (
+                             action_type VARCHAR(10)
+                         )
+
+    BEGIN TRY
+
+        BEGIN TRANSACTION;
+        -- =========================================================================
+        -- Ensure unknown member (@unknown_id) exists for referential integrity
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[exchange_rate] WHERE [id] = @unknown_id)
+            BEGIN
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[exchange_rate] ON;
+                INSERT INTO [{{ core_schema }}].[exchange_rate] (id,
+                                               currency_id,
+                                               currency_code,
+                                               starting_date,
+                                               relational_currency_id,
+                                               relational_currency_code,
+                                               exchange_rate_amount,
+                                               system_id,
+                                               company_id,
+                                               system_created_at,
+                                               system_modified_at,
+                                               system_created_by_id,
+                                               system_modified_by_id)
+                VALUES (@unknown_id,
+                        @unknown_id,
+                        @unknown_text,
+                        @min_system_datetime,
+                        @unknown_id,
+                        @unknown_text,
+                        1,
+                        @null_uuid,
+                        @null_company_id,
+                        @min_system_datetime,
+                        @min_system_datetime,
+                        @null_uuid,
+                        @null_uuid)
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[exchange_rate] OFF;
+
+            END;
+        -- =========================================================================
+        -- Lookup of surrogate keys and MERGE
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT stg.system_id,
+                   stg.company_id,
+                   stg.system_created_at,
+                   stg.system_modified_at,
+                   stg.system_modified_by_id,
+                   stg.system_created_by_id,
+                   stg.currency_code,
+                   stg.starting_date,
+                   stg.relational_currency_code,
+                   stg.exchange_rate_amount,
+
+
+                   -- Logic: NULL if source is NULL, @unknown_id if no match (unresolved), reference.id if match found (resolved)
+                   CASE
+                       WHEN stg.currency_code IS NULL THEN NULL
+                       WHEN cu.id IS NULL THEN @unknown_id
+                       ELSE cu.id
+                       END AS currency_id,
+
+                   CASE
+                       WHEN stg.relational_currency_code IS NULL THEN NULL
+                       WHEN rcu.id IS NULL THEN @unknown_id
+                       ELSE rcu.id
+                       END AS relational_currency_id
+
+            FROM {{staging_schema }}.exchange_rate AS stg
+                     LEFT JOIN {{ core_schema }}.currency cu
+                               ON stg.currency_code = cu.code AND stg.company_id = cu.company_id
+                     LEFT JOIN {{ core_schema }}.currency rcu
+                               ON stg.relational_currency_code = rcu.code AND stg.company_id = rcu.company_id
+            )
+            MERGE INTO {{ core_schema }}.exchange_rate AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        -- if the record exists and is newer, updates it:
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at
+            THEN
+            UPDATE
+            SET T.system_modified_at          = S.system_modified_at,
+                T.currency_code               = S.currency_code,
+                T.currency_id                 = S.currency_id,
+                T.starting_date               = S.starting_date,
+                T.relational_currency_code    = S.relational_currency_code,
+                T.relational_currency_id      = S.relational_currency_id,
+                T.exchange_rate_amount        = S.exchange_rate_amount,
+                -- IMPORTANT: update modified_at timestamp:
+                T.modified_at                 = SYSUTCDATETIME(),
+                T.system_modified_by_id       = S.system_modified_by_id
+
+        -- if the record doesn't exist on target table, creates it :
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id, currency_id, currency_code,
+                    starting_date, relational_currency_id, relational_currency_code,
+                    exchange_rate_amount)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                    S.system_created_by_id, S.system_modified_by_id, S.currency_id, S.currency_code,
+                    S.starting_date, S.relational_currency_id, S.relational_currency_code,
+                    S.exchange_rate_amount)
+            OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        -- returns number of inserted rows, and number of updated rows
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+
+        THROW
+
+    END CATCH
+
+
+END;
+GO
+
+
+

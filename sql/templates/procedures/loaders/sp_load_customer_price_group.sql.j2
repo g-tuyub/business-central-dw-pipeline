@@ -1,0 +1,113 @@
+-- =============================================
+-- Author:		gtuyub
+-- Create Date: 01/12/2025
+-- Description:	Loads curency records from {{staging_schema }} to {{ core_schema }} layer.
+--              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
+--              This record is created once and reused for all missing references.
+--              Inserts unknown member if missing, then merges data resolving surrogate keys,
+--              using system_id + company_id for matching (essential for multi-company DW).
+--              Updates existing records only if source has newer system_modified_at.
+-- Returns:     - Number of rows inserted.
+--              - Number of rows updated.
+-- =============================================
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_customer_price_group]
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+
+    DECLARE @merge_stats TABLE
+                         (
+                             action_type VARCHAR(10)
+                         )
+
+    BEGIN TRY
+
+        BEGIN TRANSACTION;
+        -- =========================================================================
+        -- Ensure unknown member (@unknown_id) exists for referential integrity
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[customer_price_group] WHERE [id] = @unknown_id)
+            BEGIN
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] ON;
+                INSERT INTO [{{ core_schema }}].[customer_price_group] (id,
+                                               code,
+                                               name,
+                                               system_id,
+                                               company_id,
+                                               system_created_at,
+                                               system_modified_at,
+                                               system_created_by_id,
+                                               system_modified_by_id)
+                VALUES (@unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @null_uuid,
+                        @null_company_id,
+                        @min_system_datetime,
+                        @min_system_datetime,
+                        @null_uuid,
+                        @null_uuid)
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] OFF;
+
+            END;
+        -- =========================================================================
+        -- MERGE
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT stg.system_id,
+                   stg.company_id,
+                   stg.system_created_at,
+                   stg.system_modified_at,
+                   stg.system_created_by_id,
+                   stg.system_modified_by_id,
+                   stg.code,
+                   stg.name
+            FROM {{staging_schema }}.customer_price_group AS stg
+            ) --No left joins because this table has no external references
+            MERGE INTO {{ core_schema }}.customer_price_group AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        -- if the record exists and is newer, updates it:
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at
+            THEN
+            UPDATE
+            SET T.system_modified_at          = S.system_modified_at,
+                T.code                        = S.code,
+                T.name                        = S.name,
+                -- IMPORTANT: update modified_at timestamp:
+                T.modified_at                 = SYSUTCDATETIME(),
+                T.system_modified_by_id       = S.system_modified_by_id
+
+        -- if the record doesn't exist on target table, creates it :
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (system_id, company_id, system_created_at, system_modified_at, system_created_by_id, system_modified_by_id, code, name)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.system_created_by_id, S.system_modified_by_id, S.code, S.name)
+            OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        -- returns number of inserted rows, and number of updated rows
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+
+        THROW
+
+    END CATCH
+
+
+END;
+GO

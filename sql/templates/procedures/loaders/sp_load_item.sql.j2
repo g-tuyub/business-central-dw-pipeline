@@ -1,0 +1,269 @@
+-- =============================================
+-- Author:		gtuyub
+-- Create Date: 01/12/2025
+-- Description:	Loads item records from {{staging_schema }} to {{ core_schema }} layer.
+--              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
+--              This record is created once and reused for all missing references.
+--              Inserts unknown member if missing, then merges data resolving surrogate keys,
+--              using system_id + company_id for matching (essential for multi-company DW).
+--              Updates existing records only if source has newer system_modified_at.
+-- Returns:     - Number of rows inserted.
+--              - Number of rows updated.
+-- =============================================
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_item]
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+
+    DECLARE @merge_stats TABLE
+                         (
+                             action_type VARCHAR(10)
+                         )
+
+    BEGIN TRY
+
+        BEGIN TRANSACTION;
+        -- =========================================================================
+        -- Ensure unknown member (@unknown_id) exists for referential integrity
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[item] WHERE [id] = @unknown_id)
+            BEGIN
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[item] ON;
+                INSERT INTO [{{ core_schema }}].[item] (id,
+                                               code,
+                                               name,
+                                               name_2,
+                                               bar_code,
+                                               item_type,
+                                               item_category_id,
+                                               item_category_code,
+                                               inventory_posting_group_id,
+                                               inventory_posting_group_code,
+                                               base_unit_of_measure_code,
+                                               dimension_1_code,
+                                               dimension_2_code,
+                                               unit_price,
+                                               unit_cost,
+                                               standard_cost,
+                                               unit_list_price,
+                                               profit_percentage,
+                                               gross_weight,
+                                               net_weight,
+                                               safety_stock_quantity,
+                                               costing_method,
+                                               price_profit_calculation,
+                                               assembly_policy,
+                                               manufacturing_policy,
+                                               stockout_warning,
+                                               reserve,
+                                               price_includes_vat,
+                                               blocked,
+                                               sales_blocked,
+                                               purchasing_blocked,
+                                               service_blocked,
+                                               critical,
+                                               system_id,
+                                               company_id,
+                                               system_created_at,
+                                               system_modified_at,
+                                               system_created_by_id,
+                                               system_modified_by_id)
+                VALUES (@unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        @null_uuid,
+                        @null_company_id,
+                        @min_system_datetime,
+                        @min_system_datetime,
+                        @null_uuid,
+                        @null_uuid)
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[item] OFF;
+
+            END;
+        -- =========================================================================
+        -- Lookup of surrogate keys and MERGE
+        -- =========================================================================
+        WITH source_data AS (SELECT stg.system_id,
+                                    stg.company_id,
+                                    stg.system_created_at,
+                                    stg.system_modified_at,
+                                    stg.system_created_by_id,
+                                    stg.system_modified_by_id,
+                                    stg.code,
+                                    stg.name,
+                                    stg.name_2,
+                                    stg.bar_code,
+                                    stg.item_type,
+                                    -- Logic: NULL if source is NULL, @unknown_id if no match (unresolved), reference.id if match found (resolved)
+                                    CASE
+                                        WHEN stg.item_category_code IS NULL THEN NULL
+                                        WHEN ic.id IS NULL THEN @unknown_id
+                                        ELSE ic.id
+                                        END AS item_category_id,
+                                    stg.item_category_code,
+
+                                    CASE
+                                        WHEN stg.inventory_posting_group_code IS NULL THEN NULL
+                                        WHEN ipg.id IS NULL THEN @unknown_id
+                                        ELSE ipg.id
+                                        END AS inventory_posting_group_id,
+                                    stg.inventory_posting_group_code,
+                                    stg.base_unit_of_measure_code,
+                                    stg.dimension_1_code,
+                                    stg.dimension_2_code,
+                                    stg.unit_price,
+                                    stg.unit_cost,
+                                    stg.standard_cost,
+                                    stg.unit_list_price,
+                                    stg.profit_percentage,
+                                    stg.gross_weight,
+                                    stg.net_weight,
+                                    stg.safety_stock_quantity,
+                                    stg.costing_method,
+                                    stg.price_profit_calculation,
+                                    stg.assembly_policy,
+                                    stg.manufacturing_policy,
+                                    stg.stockout_warning,
+                                    stg.reserve,
+                                    stg.price_includes_vat,
+                                    stg.blocked,
+                                    stg.sales_blocked,
+                                    stg.purchasing_blocked,
+                                    stg.service_blocked,
+                                    stg.critical
+
+                             FROM {{staging_schema }}.item AS stg
+                                      LEFT JOIN {{ core_schema }}.item_category ic
+                                                ON stg.item_category_code = ic.code AND stg.company_id = ic.company_id
+                                      LEFT JOIN {{ core_schema }}.inventory_posting_group ipg
+                                                ON stg.inventory_posting_group_code = ipg.code AND
+                                                   stg.company_id = ipg.company_id
+                             )
+            MERGE INTO {{ core_schema }}.item AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        -- if the record exists and is newer, updates it:
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at
+            THEN
+            UPDATE
+            SET T.system_modified_at            = S.system_modified_at,
+                T.code                          = S.code,
+                T.name                          = S.name,
+                T.name_2                        = S.name_2,
+                T.bar_code                      = S.bar_code,
+                T.item_type                     = S.item_type,
+                T.inventory_posting_group_id    = S.inventory_posting_group_id,
+                T.inventory_posting_group_code  = S.inventory_posting_group_code,
+                T.item_category_id              = S.item_category_id,
+                T.item_category_code            = S.item_category_code,
+                T.base_unit_of_measure_code     = S.base_unit_of_measure_code,
+                T.dimension_1_code              = S.dimension_1_code,
+                T.dimension_2_code              = S.dimension_2_code,
+                T.unit_price                    = S.unit_price,
+                T.unit_cost                     = S.unit_cost,
+                T.standard_cost                 = S.standard_cost,
+                T.unit_list_price               = S.unit_list_price,
+                T.profit_percentage             = S.profit_percentage,
+                T.gross_weight                  = S.gross_weight,
+                T.net_weight                    = S.net_weight,
+                T.safety_stock_quantity         = S.safety_stock_quantity,
+                T.costing_method                = S.costing_method,
+                T.price_profit_calculation      = S.price_profit_calculation,
+                T.assembly_policy               = S.assembly_policy,
+                T.manufacturing_policy          = S.manufacturing_policy,
+                T.stockout_warning              = S.stockout_warning,
+                T.reserve                       = S.reserve,
+                T.price_includes_vat            = S.price_includes_vat,
+                T.blocked                       = S.blocked,
+                T.sales_blocked                 = S.sales_blocked,
+                T.purchasing_blocked            = S.purchasing_blocked,
+                T.service_blocked               = S.service_blocked,
+                T.critical                      = S.critical,
+                -- IMPORTANT: update modified_at timestamp:
+                T.modified_at                 = SYSUTCDATETIME(),
+                T.system_modified_by_id       = S.system_modified_by_id
+
+        -- if the record doesn't exist on target table, creates it :
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id, code, name, name_2,
+                    bar_code, item_type, item_category_id, item_category_code,
+                    inventory_posting_group_id, inventory_posting_group_code,
+                    base_unit_of_measure_code, dimension_1_code, dimension_2_code,
+                    unit_price, unit_cost, standard_cost, unit_list_price, profit_percentage,
+                    gross_weight, net_weight, safety_stock_quantity, costing_method,
+                    price_profit_calculation, assembly_policy, manufacturing_policy,
+                    stockout_warning, reserve, price_includes_vat, blocked, sales_blocked,
+                    purchasing_blocked, service_blocked, critical)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                    S.system_created_by_id, S.system_modified_by_id, S.code, S.name, S.name_2,
+                    S.bar_code, S.item_type, S.item_category_id, S.item_category_code,
+                    S.inventory_posting_group_id, S.inventory_posting_group_code,
+                    S.base_unit_of_measure_code, S.dimension_1_code, S.dimension_2_code,
+                    S.unit_price, S.unit_cost, S.standard_cost, S.unit_list_price, S.profit_percentage,
+                    S.gross_weight, S.net_weight, S.safety_stock_quantity, S.costing_method,
+                    S.price_profit_calculation, S.assembly_policy, S.manufacturing_policy,
+                    S.stockout_warning, S.reserve, S.price_includes_vat, S.blocked, S.sales_blocked,
+                    S.purchasing_blocked, S.service_blocked, S.critical)
+            OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        -- returns number of inserted rows, and number of updated rows
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+
+        THROW
+
+    END CATCH
+
+
+END;
+GO
+
+
+
