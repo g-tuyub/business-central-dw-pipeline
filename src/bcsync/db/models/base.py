@@ -1,7 +1,7 @@
 """
 bcsync.db.models.base
 ~~~~~~~~~~~~~~~~~~~~~
-En este módulo se definen las clases Base del ORM para el sistema de sincronización al Data Warehouse:
+En este módulo se definen las clases Base del ORM:
 Se estandariza el comportamiento de cada esquema (staging, core).
 
 Uso:
@@ -18,7 +18,7 @@ Uso:
         name: Mapped[str]
         ...
 """
-
+import logging
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declared_attr
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
 from sqlalchemy import Index, UniqueConstraint, text, event, Connection
@@ -104,7 +104,7 @@ class StagingBase(Base, BCSystemFieldsMixin):
     """Clase base abstracta para todos los modelos de la capa staging.
     Cualquier modelo de staging debe de heredar de esta clase, lo cual garantiza:
 
-    - heredar la condición de PK Lógica en system_id, y no tener PK real, ya que todas las tablas de staging conceptualmente son heaps para agilizar el bulk insert.
+    - heredar la condición de PK Lógica en system_id, ya que todas las tablas de staging conceptualmente son heaps para agilizar el bulk insert.
 
     - heredar el esquema, por lo que la tabla será creada dentro del esquema de staging.
     """
@@ -153,46 +153,10 @@ class CoreBase(Base, BCSystemFieldsMixin, DWAuditFieldsMixin):
         )
 
 
-#logical FKs on core by default, not enforced
-def disable_fks_listener(target, connection: Connection, **kw):
-    """
-        Event Listener ejecutado después de crear todas las tablas.
-        Ejecuta la sentencia `ALTER TABLE ... NOCHECK CONSTRAINT ALL` en todas las tablas de la capa Core (DW).
-
-        Motivación:
-        - Permitir la carga de 'Late Arriving Dimensions' en el DW.
-        - Mejorar el rendimiento del bulk insert.
-        - Mantener la metadata de relaciones visible para herramientas como Power BI.
-        """
-    for table in target.tables.values():
-
-        if table.info.get('enforce_fk_constraints'):
-            return
-        table_name = f"[{table.schema or 'dbo'}].[{table.name}]"
-        connection.execute(
-            text(
-            f"ALTER TABLE {table_name} NOCHECK CONSTRAINT ALL"
-            )
-        )
 
 
-def create_schemas_listener(target, connection : Connection, **kw):
-    """
-    Event Listener ejecutado antes de crear las tablas.
 
-    Verifica si los esquemas existen en la BD, si no, los crea.
-    """
 
-    for schema in DBSchemas:
-        schema_name = schema.value
-        connection.execute(
-            text(f"""IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{schema_name}')
-                        BEGIN 
-                            EXEC('CREATE SCHEMA {schema_name}')
-                        END
-                """)
-        )
+
 #vinculando eventos al objeto metadata
-event.listen(Base.metadata,'before_create', create_schemas_listener)
-event.listen(Base.metadata, 'after_create', disable_fks_listener)
 
