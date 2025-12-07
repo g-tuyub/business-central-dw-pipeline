@@ -48,6 +48,7 @@ BEGIN
                 VALUES (@unknown_id,
                         @unknown_text,
                         @unknown_text,
+                        @unknown_text,
                         @null_uuid,
                         @null_company_id,
                         @min_system_datetime,
@@ -66,6 +67,8 @@ BEGIN
                    stg.company_id,
                    stg.system_created_at,
                    stg.system_modified_at,
+                   stg.system_created_by_id,
+                   stg.system_modified_by_id,
                    stg.code,
                    stg.name,
                    stg.iso_code
@@ -84,13 +87,14 @@ BEGIN
                 T.name                        = S.name,
                 T.iso_code                    = S.iso_code,
                 -- IMPORTANT: update modified_at timestamp:
-                T.modified_at                 = SYSUTCDATETIME()
+                T.modified_at                 = SYSUTCDATETIME(),
+                T.system_modified_by_id       = S.system_modified_by_id
 
         -- if the record doesn't exist on target table, creates it :
         WHEN NOT MATCHED BY TARGET THEN
-            INSERT (system_id, company_id, system_created_at, system_modified_at, code, name,
+            INSERT (system_id, company_id, system_created_at, system_modified_at, system_created_by_id, system_modified_by_id, code, name,
                     iso_code)
-            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.code, S.name,
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.system_created_by_id, S.system_modified_by_id, S.code, S.name,
                     S.iso_code)
             OUTPUT $action into @merge_stats;
 

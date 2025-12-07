@@ -89,10 +89,10 @@ def run_sync(config : Optional[Config] = None, entities_to_sync: Optional[List[B
             if sync_config:
                 targets.append(sync_config)
     else:
-        targets = [SYNC_TARGETS.values()]
+        targets = list(SYNC_TARGETS.values())
 
     for sync_config in targets:
             sync_entity(db_engine=engine, api_client=client, sync_config=sync_config)
 
 if __name__ == "__main__":
-    run_sync(entities_to_sync=[BCEntity.CUSTOMER,BCEntity.COUNTRY, BCEntity.CURRENCY, BCEntity.CUSTOMER_PRICE_GROUP, BCEntity.CUSTOMER_POSTING_GROUP,BCEntity.EXCHANGE_RATE,BCEntity.LOCATION, BCEntity.PAYMENT_TERM, BCEntity.PAYMENT_METHOD, BCEntity.SALESPERSON, BCEntity.SHIP_TO_ADDRESS,BCEntity.SHIPMENT_METHOD,BCEntity.VENDOR, BCEntity.VENDOR_POSTING_GROUP])
+    run_sync()
