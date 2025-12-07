@@ -12,7 +12,7 @@ from sqlalchemy import Engine
 logger = logging.getLogger(__name__)
 
 
-def sync_entity(db_engine: Engine, api_client: BusinessCentralClient, sync_config: EntitySyncConfig) -> None:
+def stage_entity(db_engine: Engine, api_client: BusinessCentralClient, sync_config: EntitySyncConfig) -> None:
     run_metrics = {
         "extraction_time": 0.0,
         "validation_time": 0.0,
@@ -75,6 +75,29 @@ def sync_entity(db_engine: Engine, api_client: BusinessCentralClient, sync_confi
 
     logger.info(
         f"A total of {run_metrics['total_rows_inserted']} rows were inserted to staging. Elapsed time: {total_time} seconds")
+
+
+def load_entity_core(db_engine: Engine, sync_config: EntitySyncConfig) -> None:
+    try:
+        metrics = {"inserted": 0, "updated": 0, "fixed": False, "load_time": 0.0}
+        t_start = time.perf_counter()
+        with Session(db_engine) as session:}
+            result = db_session.execute(f'EXEC {sync_config.loader_sp)
+            row = result.fetchone()
+            if row:
+                metrics["inserted"] = getattr(row, 'rows_inserted', 0)
+                metrics["updated"] = getattr(row, 'rows_updated', 0)
+            if sync_config.fixer_sp:
+                session.execute(text(f"EXEC {sync_config.fixer_sp}"))
+                metrics["fixed"] = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+            logger.error(f"Unable to load from {sync_config.staging_schema} to {sync_config.core_schema} for table: {sync_config.core_table} due to an error : {e}")
+            raise e
+        
+    
+    
 
 
 def run_sync(config : Optional[Config] = None, entities_to_sync: Optional[List[BCEntity]] = None):
