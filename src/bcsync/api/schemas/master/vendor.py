@@ -1,10 +1,10 @@
 from typing import Optional
 from pydantic import Field
-from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.base import BCEntityBase
 from bcsync.api.schemas.types import BCString
 
 
-class Vendor(BCEntityModel):
+class Vendor(BCEntityBase):
     code: str = Field(alias='no')
     name: BCString
     vendor_posting_group_code: BCString = Field(alias='vendorPostingGroup')

@@ -1,10 +1,10 @@
 from typing import Optional
 from pydantic import Field
-from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.base import BCEntityBase
 from bcsync.api.schemas.types import BCString
 
 
-class ShipToAddress(BCEntityModel):
+class ShipToAddress(BCEntityBase):
     code: str
     customer_code: str = Field(alias='customerNo')
     country_code: BCString = Field(alias='countryCode')

@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 def create_tables_and_schema(engine):
     logger.info('Creating tables and schema.')
-    Base.metadata.create_all(engine)
     register_all_listeners(Base.metadata)
+    Base.metadata.create_all(engine)
     logger.info(f'Successfully created tables and schema.')
 
 

@@ -1,7 +1,7 @@
-from bcsync.api.schemas.base import BCEntityModel
+from bcsync.api.schemas.base import BCEntityBase
 from bcsync.api.schemas.types import BCString
 
 
-class Country(BCEntityModel):
+class Country(BCEntityBase):
     code: str
     name: BCString

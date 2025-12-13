@@ -1,13 +1,17 @@
 ﻿import os
-from dataclasses import dataclass
-from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr
+from typing import Optional, TYPE_CHECKING
 from pathlib import Path
 from dotenv import load_dotenv
-from bcsync.config.config_block import ConfigBlock
 from sqlalchemy.engine import URL
 
-@dataclass
-class APIConfig:
+if TYPE_CHECKING:
+    from bcsync.config.config_block import ConfigBlock
+
+
+class APIConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="API_", env_file=".env", extra='ignore')
 
     tenant_id : str
     client_id : str
@@ -26,20 +30,19 @@ class APIConfig:
     def authority(self) -> str:
         return f"https://login.microsoftonline.com/{self.tenant_id}"
 
-@dataclass
-class DBConfig:
+class DBConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='DB_', env_file='.env', extra='ignore')
 
     host : str
     database : str
     port : int = 1433
     username : Optional[str] = None
-    password : Optional[str] = None
+    password : Optional[SecretStr] = None
     driver : Optional[str] = "ODBC Driver 17 for SQL Server"
     trusted_connection : Optional[bool] = False
 
     @property
     def connection_string(self) -> URL:
-        # Argumentos comunes
         query_params = {"driver": self.driver,
                         "TrustServerCertificate": "yes"}
 
@@ -59,50 +62,17 @@ class DBConfig:
             return URL.create(
                 drivername="mssql+pyodbc",
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 host=self.host,
                 port=self.port,
                 database=self.database,
                 query=query_params
             )
 
+class Config(BaseSettings):
 
-@dataclass
-class Config:
-
-    api : APIConfig
-    db : DBConfig
-
-    @classmethod
-    def from_env(cls, env_path : Optional[Path] = None, override : bool = False) -> 'Config':
-
-        if env_path is None:
-            load_dotenv(override=override)
-
-        else:
-            load_dotenv(dotenv_path=env_path,override=override)
-
-        api_config = APIConfig(
-            tenant_id =os.getenv("TENANT_ID"),
-            client_id = os.getenv("CLIENT_ID"),
-            client_secret = os.getenv("CLIENT_SECRET"),
-            company_id = os.getenv("COMPANY_ID"),
-            environment = os.getenv("ENVIRONMENT"),
-            publisher = os.getenv("PUBLISHER"),
-            group = os.getenv("GROUP"),
-            version = os.getenv("VERSION"),
-        )
-
-        db_config = DBConfig(
-            username =os.getenv('DATABASE_USERNAME'),
-            password =os.getenv('DATABASE_PASSWORD'),
-            host =os.getenv('DATABASE_HOST'),
-            database =os.getenv('DATABASE'),
-            port =int(os.getenv('DATABASE_PORT') or 1433),
-            trusted_connection=(os.getenv('TRUSTED_CONNECTION', "0") == "1")
-        )
-
-        return cls(api=api_config, db=db_config)
+    api : APIConfig = Field(default_factory=APIConfig)
+    db : DBConfig = Field(default_factory=DBConfig)
 
     @classmethod
     def from_prefect_block(cls, block_name : str) -> 'Config':
@@ -110,9 +80,9 @@ class Config:
         block = ConfigBlock.load(block_name)
 
         api_config = APIConfig(
-            tenant_id = block.tenant_id.get_secret_value(),
+            tenant_id = block.tenant_id,
             client_id = block.client_id,
-            client_secret = block.client_secret,
+            client_secret = block.client_secret.get_secret_value(),
             company_id = block.company_id,
             environment = block.environment,
             publisher = block.api_publisher,
@@ -122,7 +92,7 @@ class Config:
 
         db_config = DBConfig(
             username = block.db_username,
-            password = block.db_password,
+            password = block.db_password.get_secret_value(),
             host = block.db_host,
             database = block.db_name,
             port = block.db_port,

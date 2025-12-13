@@ -116,6 +116,7 @@ class StagingBase(Base, BCSystemFieldsMixin):
     @declared_attr
     def __table_args__(cls):
         return (
+            Index(None, "company_id","system_id",mssql_clustered=False),
             {"schema": DBSchemas.STAGING}
         )
 
