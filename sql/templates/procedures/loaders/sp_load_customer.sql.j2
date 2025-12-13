@@ -1,7 +1,7 @@
 -- =============================================
 -- Author:		gtuyub
 -- Create Date: 01/12/2025
--- Description:	Loads customer records from {{staging_schema }} to {{ core_schema }} layer.
+-- Description:	Loads records from {{staging_schema }} to {{ core_schema }} layer.
 --              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
 --              This record is created once and reused for all missing references.
 --              Inserts unknown member if missing, then merges data resolving surrogate keys,

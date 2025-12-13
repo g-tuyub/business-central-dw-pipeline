@@ -10,7 +10,7 @@
 -- Returns:     - Number of rows inserted.
 --              - Number of rows updated.
 -- =============================================
-CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_customer_price_group]
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_salesperson]
 AS
 BEGIN
 
@@ -31,13 +31,17 @@ BEGIN
         -- =========================================================================
         -- Ensure unknown member (@unknown_id) exists for referential integrity
         -- =========================================================================
-        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[customer_price_group] WHERE [id] = @unknown_id)
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[salesperson] WHERE [id] = @unknown_id)
             BEGIN
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] ON;
-                INSERT INTO [{{ core_schema }}].[customer_price_group] (id,
+                SET IDENTITY_INSERT [{{ core_schema }}].[salesperson] ON;
+                INSERT INTO [{{ core_schema }}].[salesperson] (id,
                                                code,
                                                name,
+                                               job_title,
+                                               dimension_1_code,
+                                               dimension_2_code,
+                                               blocked,
                                                system_id,
                                                company_id,
                                                system_created_at,
@@ -47,6 +51,10 @@ BEGIN
                 VALUES (@unknown_id,
                         @unknown_text,
                         @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        0,
                         @null_uuid,
                         @null_company_id,
                         @min_system_datetime,
@@ -54,7 +62,7 @@ BEGIN
                         @null_uuid,
                         @null_uuid)
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] OFF;
+                SET IDENTITY_INSERT [{{ core_schema }}].[salesperson] OFF;
 
             END;
         -- =========================================================================
@@ -68,10 +76,14 @@ BEGIN
                    stg.system_created_by_id,
                    stg.system_modified_by_id,
                    stg.code,
-                   stg.name
-            FROM {{staging_schema }}.customer_price_group AS stg
+                   stg.name,
+                   stg.job_title,
+                   stg.dimension_1_code,
+                   stg.dimension_2_code,
+                   stg.blocked
+            FROM {{staging_schema }}.salesperson AS stg
             ) --No left joins because this table has no external references
-            MERGE INTO {{ core_schema }}.customer_price_group AS T
+            MERGE INTO {{ core_schema }}.salesperson AS T
         USING source_data AS S
         ON (T.system_id = S.system_id AND T.company_id = S.company_id)
 
@@ -82,14 +94,18 @@ BEGIN
             SET T.system_modified_at          = S.system_modified_at,
                 T.code                        = S.code,
                 T.name                        = S.name,
+                T.job_title                   = S.job_title,
+                T.dimension_1_code            = S.dimension_1_code,
+                T.dimension_2_code            = S.dimension_2_code,
+                T.blocked                     = S.blocked,
                 -- IMPORTANT: update modified_at timestamp:
                 T.modified_at                 = SYSUTCDATETIME(),
                 T.system_modified_by_id       = S.system_modified_by_id
 
         -- if the record doesn't exist on target table, creates it :
         WHEN NOT MATCHED BY TARGET THEN
-            INSERT (system_id, company_id, system_created_at, system_modified_at, system_created_by_id, system_modified_by_id, code, name)
-            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.system_created_by_id, S.system_modified_by_id, S.code, S.name)
+            INSERT (system_id, company_id, system_created_at, system_modified_at, system_created_by_id, system_modified_by_id, code, name, job_title, dimension_1_code, dimension_2_code, blocked)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.system_created_by_id, S.system_modified_by_id, S.code, S.name, S.job_title, S.dimension_1_code, S.dimension_2_code, S.blocked)
             OUTPUT $action into @merge_stats;
 
         COMMIT TRANSACTION;
@@ -111,3 +127,6 @@ BEGIN
 
 END;
 GO
+
+
+

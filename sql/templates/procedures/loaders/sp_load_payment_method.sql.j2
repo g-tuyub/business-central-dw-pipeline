@@ -10,7 +10,7 @@
 -- Returns:     - Number of rows inserted.
 --              - Number of rows updated.
 -- =============================================
-CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_customer_price_group]
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_payment_method]
 AS
 BEGIN
 
@@ -31,11 +31,11 @@ BEGIN
         -- =========================================================================
         -- Ensure unknown member (@unknown_id) exists for referential integrity
         -- =========================================================================
-        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[customer_price_group] WHERE [id] = @unknown_id)
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[payment_method] WHERE [id] = @unknown_id)
             BEGIN
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] ON;
-                INSERT INTO [{{ core_schema }}].[customer_price_group] (id,
+                SET IDENTITY_INSERT [{{ core_schema }}].[payment_method] ON;
+                INSERT INTO [{{ core_schema }}].[payment_method] (id,
                                                code,
                                                name,
                                                system_id,
@@ -54,7 +54,7 @@ BEGIN
                         @null_uuid,
                         @null_uuid)
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[customer_price_group] OFF;
+                SET IDENTITY_INSERT [{{ core_schema }}].[payment_method] OFF;
 
             END;
         -- =========================================================================
@@ -69,9 +69,9 @@ BEGIN
                    stg.system_modified_by_id,
                    stg.code,
                    stg.name
-            FROM {{staging_schema }}.customer_price_group AS stg
+            FROM {{staging_schema }}.payment_method AS stg
             ) --No left joins because this table has no external references
-            MERGE INTO {{ core_schema }}.customer_price_group AS T
+            MERGE INTO {{ core_schema }}.payment_method AS T
         USING source_data AS S
         ON (T.system_id = S.system_id AND T.company_id = S.company_id)
 
@@ -111,3 +111,6 @@ BEGIN
 
 END;
 GO
+
+
+
