@@ -1,0 +1,269 @@
+-- =============================================
+-- Author:		gtuyub
+-- Create Date: 01/12/2025
+-- Description:	Loads records from {{staging_schema }} to {{ core_schema }} layer.
+--              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
+--              This record is created once and reused for all missing references.
+--              Inserts unknown member if missing, then merges data resolving surrogate keys,
+--              using system_id + company_id for matching (essential for multi-company DW).
+--              Updates existing records only if source has newer system_modified_at.
+-- Returns:     - Number of rows inserted.
+--              - Number of rows updated.
+-- =============================================
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_vendor]
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+
+    DECLARE @merge_stats TABLE
+                         (
+                             action_type VARCHAR(10)
+                         )
+
+    BEGIN TRY
+
+        BEGIN TRANSACTION;
+        -- =========================================================================
+        -- Ensure unknown member (@unknown_id) exists for referential integrity
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[vendor] WHERE [id] = @unknown_id)
+            BEGIN
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[vendor] ON;
+                INSERT INTO [{{ core_schema }}].[vendor] (id,
+                                               code,
+                                               name,
+                                               vendor_posting_group_id,
+                                               vendor_posting_group_code,
+                                               currency_id,
+                                               currency_code,
+                                               payment_term_id,
+                                               payment_term_code,
+                                               payment_method_id,
+                                               payment_method_code,
+                                               purchaser_id,
+                                               purchaser_code,
+                                               shipment_method_id,
+                                               shipment_method_code,
+                                               address_line_1,
+                                               address_line_2,
+                                               postal_code,
+                                               country_id,
+                                               country_code,
+                                               dimension_1_code,
+                                               dimension_2_code,
+                                               blocked,
+                                               priority,
+                                               system_id,
+                                               company_id,
+                                               system_created_at,
+                                               system_modified_at,
+                                               system_created_by_id,
+                                               system_modified_by_id)
+                VALUES (@unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_id,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        @unknown_text,
+                        0,
+                        @null_uuid,
+                        @null_company_id,
+                        @min_system_datetime,
+                        @min_system_datetime,
+                        @null_uuid,
+                        @null_uuid)
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[vendor] OFF;
+
+            END;
+        -- =========================================================================
+        -- Lookup of surrogate keys and MERGE
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT stg.system_id,
+                   stg.company_id,
+                   stg.system_created_at,
+                   stg.system_modified_at,
+                   stg.system_created_by_id,
+                   stg.system_modified_by_id,
+                   stg.code,
+                   stg.name,
+
+                   -- Logic: NULL if source is NULL, @unknown_id if no match (unresolved), reference.id if match found (resolved)
+                   CASE
+                       WHEN stg.vendor_posting_group_code IS NULL THEN NULL
+                       WHEN vpg.id IS NULL THEN @unknown_id
+                       ELSE vpg.id
+                       END AS vendor_posting_group_id,
+                   stg.vendor_posting_group_code,
+
+                   CASE
+                       WHEN stg.currency_code IS NULL THEN NULL
+                       WHEN cur.id IS NULL THEN @unknown_id
+                       ELSE cur.id
+                       END AS currency_id,
+                   stg.currency_code,
+
+                   CASE
+                       WHEN stg.payment_term_code IS NULL THEN NULL
+                       WHEN pt.id IS NULL THEN @unknown_id
+                       ELSE pt.id
+                       END AS payment_term_id,
+                   stg.payment_term_code,
+
+                   CASE
+                       WHEN stg.payment_method_code IS NULL THEN NULL
+                       WHEN pm.id IS NULL THEN @unknown_id
+                       ELSE pm.id
+                       END AS payment_method_id,
+                   stg.payment_method_code,
+
+                   CASE
+                       WHEN stg.purchaser_code IS NULL THEN NULL
+                       WHEN sp.id IS NULL THEN @unknown_id
+                       ELSE sp.id
+                       END AS purchaser_id,
+                   stg.purchaser_code,
+
+                   CASE
+                       WHEN stg.shipment_method_code IS NULL THEN NULL
+                       WHEN sm.id IS NULL THEN @unknown_id
+                       ELSE sm.id
+                       END AS shipment_method_id,
+                   stg.shipment_method_code,
+
+                   CASE
+                       WHEN stg.country_code IS NULL THEN NULL
+                       WHEN cou.id IS NULL THEN @unknown_id
+                       ELSE cou.id
+                       END AS country_id,
+                   stg.country_code,
+
+                   stg.address_line_1,
+                   stg.address_line_2,
+                   stg.postal_code,
+                   stg.dimension_1_code,
+                   stg.dimension_2_code,
+                   stg.blocked,
+                   stg.priority
+
+            FROM {{staging_schema }}.vendor AS stg
+                     LEFT JOIN {{ core_schema }}.vendor_posting_group vpg
+                               ON stg.vendor_posting_group_code = vpg.code AND stg.company_id = vpg.company_id
+                     LEFT JOIN {{ core_schema }}.currency cur ON stg.currency_code = cur.code AND stg.company_id = cur.company_id
+                     LEFT JOIN {{ core_schema }}.payment_term pt
+                               ON stg.payment_term_code = pt.code AND stg.company_id = pt.company_id
+                     LEFT JOIN {{ core_schema }}.payment_method pm
+                               ON stg.payment_method_code = pm.code AND stg.company_id = pm.company_id
+                     LEFT JOIN {{ core_schema }}.salesperson sp ON stg.purchaser_code = sp.code AND stg.company_id = sp.company_id
+                     LEFT JOIN {{ core_schema }}.shipment_method sm
+                               ON stg.shipment_method_code = sm.code AND stg.company_id = sm.company_id
+                     LEFT JOIN {{ core_schema }}.country cou ON stg.country_code = cou.code AND stg.company_id = cou.company_id
+            )
+            MERGE INTO {{ core_schema }}.vendor AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        -- if the record exists and is newer, updates it:
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at
+            THEN
+            UPDATE
+            SET T.system_modified_at          = S.system_modified_at,
+                T.code                        = S.code,
+                T.name                        = S.name,
+                T.vendor_posting_group_id   = S.vendor_posting_group_id,
+                T.vendor_posting_group_code = S.vendor_posting_group_code,
+                T.currency_id                 = S.currency_id,
+                T.currency_code               = S.currency_code,
+                T.payment_term_id             = S.payment_term_id,
+                T.payment_term_code           = S.payment_term_code,
+                T.payment_method_id           = S.payment_method_id,
+                T.payment_method_code         = S.payment_method_code,
+                T.purchaser_id                = S.purchaser_id,
+                T.purchaser_code              = S.purchaser_code,
+                T.shipment_method_id          = S.shipment_method_id,
+                T.shipment_method_code        = S.shipment_method_code,
+                T.country_id                  = S.country_id,
+                T.country_code                = S.country_code,
+                T.address_line_1              = S.address_line_1,
+                T.address_line_2              = S.address_line_2,
+                T.postal_code                 = S.postal_code,
+                T.dimension_1_code            = S.dimension_1_code,
+                T.dimension_2_code            = S.dimension_2_code,
+                T.blocked                     = S.blocked,
+                T.priority                    = S.priority,
+                -- IMPORTANT: update modified_at timestamp:
+                T.modified_at                 = SYSUTCDATETIME(),
+                T.system_modified_by_id       = S.system_modified_by_id
+
+        -- if the record doesn't exist on target table, creates it :
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id, code, name,
+                    vendor_posting_group_id, vendor_posting_group_code,
+                    currency_id, currency_code,
+                    payment_term_id, payment_term_code,
+                    payment_method_id, payment_method_code,
+                    purchaser_id, purchaser_code,
+                    shipment_method_id, shipment_method_code,
+                    country_id, country_code,
+                    address_line_1, address_line_2, postal_code, dimension_1_code, dimension_2_code,
+                    blocked, priority)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                    S.system_created_by_id, S.system_modified_by_id, S.code, S.name,
+                    S.vendor_posting_group_id, S.vendor_posting_group_code,
+                    S.currency_id, S.currency_code,
+                    S.payment_term_id, S.payment_term_code,
+                    S.payment_method_id, S.payment_method_code,
+                    S.purchaser_id, S.purchaser_code,
+                    S.shipment_method_id, S.shipment_method_code,
+                    S.country_id, S.country_code,
+                    S.address_line_1, S.address_line_2, S.postal_code, S.dimension_1_code, S.dimension_2_code,
+                    S.blocked, S.priority)
+            OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        -- returns number of inserted rows, and number of updated rows
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+
+        THROW
+
+    END CATCH
+
+
+END;
+GO
+
+
+

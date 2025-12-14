@@ -5,7 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bc-sync"
 version = "0.1.0"
-description  = "Modern data pipeline solution to extract data from Dynamics 365 Business Central into a SQL Server DataWarehouse."
 requires-python = ">=3.10"
 dependencies = [
     "prefect===3.4.5",

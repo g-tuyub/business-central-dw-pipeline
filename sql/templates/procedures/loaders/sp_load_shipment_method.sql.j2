@@ -5,12 +5,12 @@
 --              Uses "Unknown member" pattern (@unknown_id) for referential integrity.
 --              This record is created once and reused for all missing references.
 --              Inserts unknown member if missing, then merges data resolving surrogate keys,
---              using system_id + company_id for matching.
+--              using system_id + company_id for matching (essential for multi-company DW).
 --              Updates existing records only if source has newer system_modified_at.
 -- Returns:     - Number of rows inserted.
 --              - Number of rows updated.
 -- =============================================
-CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_location]
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_shipment_method]
 AS
 BEGIN
 
@@ -31,18 +31,13 @@ BEGIN
         -- =========================================================================
         -- Ensure unknown member (@unknown_id) exists for referential integrity
         -- =========================================================================
-        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[location] WHERE [id] = @unknown_id)
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[shipment_method] WHERE [id] = @unknown_id)
             BEGIN
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[location] ON;
-                INSERT INTO [{{ core_schema }}].[location] (id,
+                SET IDENTITY_INSERT [{{ core_schema }}].[shipment_method] ON;
+                INSERT INTO [{{ core_schema }}].[shipment_method] (id,
                                                code,
                                                name,
-                                               postal_code,
-                                               address_line_1,
-                                               address_line_2,
-                                               country_id,
-                                               country_code,
                                                system_id,
                                                company_id,
                                                system_created_at,
@@ -52,11 +47,6 @@ BEGIN
                 VALUES (@unknown_id,
                         @unknown_text,
                         @unknown_text,
-                        @unknown_text,
-                        @unknown_text,
-                        @unknown_text,
-                        -1,
-                        @unknown_text,
                         @null_uuid,
                         @null_company_id,
                         @min_system_datetime,
@@ -64,7 +54,7 @@ BEGIN
                         @null_uuid,
                         @null_uuid)
 
-                SET IDENTITY_INSERT [{{ core_schema }}].[location] OFF;
+                SET IDENTITY_INSERT [{{ core_schema }}].[shipment_method] OFF;
 
             END;
         -- =========================================================================
@@ -75,23 +65,13 @@ BEGIN
                    stg.company_id,
                    stg.system_created_at,
                    stg.system_modified_at,
-                   stg.system_created_by_id,
                    stg.system_modified_by_id,
+                   stg.system_created_by_id,
                    stg.code,
-                   stg.name,
-                   stg.postal_code,
-                   stg.address_line_1,
-                   stg.address_line_2,
-                   stg.country_code,
-                CASE WHEN stg.country_code IS NULL THEN NULL
-                       WHEN c.id IS NULL THEN @unknown_id
-                       ELSE c.id
-                       END AS country_id
-            FROM {{staging_schema }}.location AS stg
-            LEFT JOIN {{ core_schema }}.country as c
-            ON stg.country_code = c.code
-            )
-            MERGE INTO {{ core_schema }}.location AS T
+                   stg.name
+            FROM {{staging_schema }}.shipment_method AS stg
+            ) --No left joins because this table has no external references
+            MERGE INTO {{ core_schema }}.shipment_method AS T
         USING source_data AS S
         ON (T.system_id = S.system_id AND T.company_id = S.company_id)
 
@@ -102,20 +82,14 @@ BEGIN
             SET T.system_modified_at          = S.system_modified_at,
                 T.code                        = S.code,
                 T.name                        = S.name,
-                T.postal_code                 = S.postal_code,
-                T.address_line_1              = S.address_line_2,
-                T.country_id                  = S.country_id,
-                T.country_code                = S.country_code,
                 -- IMPORTANT: update modified_at timestamp:
                 T.modified_at                 = SYSUTCDATETIME(),
                 T.system_modified_by_id       = S.system_modified_by_id
 
         -- if the record doesn't exist on target table, creates it :
         WHEN NOT MATCHED BY TARGET THEN
-            INSERT (system_id, company_id, system_created_at, system_modified_at,
-                    system_created_by_id, system_modified_by_id, code, name, postal_code, address_line_1, address_line_2, country_id, country_code)
-            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
-                    S.system_created_by_id, S.system_modified_by_id, S.code, S.name, S.postal_code, S.address_line_1, S.address_line_2, S.country_id, S.country_code)
+            INSERT (system_id, company_id, system_created_at, system_modified_at, system_modified_by_id, system_created_by_id, code, name)
+            VALUES (S.system_id, S.company_id, S.system_created_at, S.system_modified_at, S.system_modified_by_id, S.system_created_by_id, S.code, S.name)
             OUTPUT $action into @merge_stats;
 
         COMMIT TRANSACTION;

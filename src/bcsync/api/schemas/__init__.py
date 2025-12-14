@@ -1,4 +1,3 @@
-from .base import BCEntityModel
 from .master.currency import Currency
 from .master.country import Country
 from .master.customer import Customer

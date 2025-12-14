@@ -1,10 +1,10 @@
-﻿import os
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr
 from typing import Optional, TYPE_CHECKING
-from pathlib import Path
-from dotenv import load_dotenv
 from sqlalchemy.engine import URL
+from dotenv import load_dotenv
+
+load_dotenv()
 
 if TYPE_CHECKING:
     from bcsync.config.config_block import ConfigBlock
@@ -70,6 +70,7 @@ class DBConfig(BaseSettings):
             )
 
 class Config(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
     api : APIConfig = Field(default_factory=APIConfig)
     db : DBConfig = Field(default_factory=DBConfig)

@@ -11,7 +11,7 @@ logging.basicConfig(
 
 
 def main()-> None:
-    config = Config.from_env()
+    config = Config()
     engine = get_engine(config.db.connection_string)
     create_tables_and_schema(engine)
     deploy_procedures(engine)
