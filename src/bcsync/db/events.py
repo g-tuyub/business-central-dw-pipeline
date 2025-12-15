@@ -1,7 +1,6 @@
 import logging
 from sqlalchemy import text, event, Connection
 from bcsync.db.schemas import DBSchemas
-from bcsync.db.models.base import Base
 
 logger = logging.getLogger(__name__)
 

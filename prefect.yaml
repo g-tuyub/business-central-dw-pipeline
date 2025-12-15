@@ -18,7 +18,7 @@ pull:
       directory: /app
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
-- name: 'actualizacion programada: mexico prod.'
+- name: 'mexico-prod'
   version: null
   tags: []
   description: null

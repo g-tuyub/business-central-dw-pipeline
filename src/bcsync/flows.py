@@ -11,14 +11,15 @@ from bcsync.core.types import EntitySyncConfig, BCEntity, SyncMetrics
 from bcsync.db.engine import get_engine
 from sqlalchemy.orm import Session
 from bcsync.core.sync import (
-    execute_load_procedure, 
-    execute_fix_procedure, 
-    delete_staging_records, 
+    execute_load_procedure,
+    execute_fix_procedure,
+    delete_staging_records,
     get_sync_timestamp,
     bulk_insert_to_staging
 )
 
-@task(task_run_name='[FASE 1] : {sync_config.core_table}')
+
+@task(task_run_name='fase-1-{sync_config.core_table}',tags=['bc-api-limit'])
 def staging_task(config: Config, sync_config: EntitySyncConfig) -> int:
     logger = get_run_logger()
     logger.info('Inicializando proceso de Extracción y Carga : API Business Central -> Tabla Staging en DW.')
@@ -39,7 +40,7 @@ def staging_task(config: Config, sync_config: EntitySyncConfig) -> int:
     return staged_records
 
 
-@task(task_run_name='[FASE 2] : {sync_config.core_table}', tags=['bc-api-limit'])
+@task(task_run_name='fase-2-{sync_config.core_table}')
 def merge_task(config: Config, sync_config: EntitySyncConfig, staged_records: int) -> Dict[str, Any]:
     logger = get_run_logger()
     metrics = {
@@ -69,8 +70,8 @@ def merge_task(config: Config, sync_config: EntitySyncConfig, staged_records: in
     return metrics
 
 
-@flow(name='Sincronizar tablas datawarehouse Business Central',
-      description='Flujo principal para sincronizar datos de Business Central ---> BD SQL server.')
+@flow(name='actualizar-tablas-datawarehouse-business-central',
+      description='Flujo principal para sincronizar todas las tablas de Business Central en el datawarehouse de SQL Server, para una empresa específica.')
 def sync_entities(config_block: Optional[str] = None, entities_to_sync: Optional[List[BCEntity]] = None):
     logger = get_run_logger()
     if config_block:
