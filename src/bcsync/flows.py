@@ -39,7 +39,7 @@ def staging_task(config: Config, sync_config: EntitySyncConfig) -> int:
     return staged_records
 
 
-@task(task_run_name='[FASE 2] : {sync_config.core_table}')
+@task(task_run_name='[FASE 2] : {sync_config.core_table}', tags=['bc-api-limit'])
 def merge_task(config: Config, sync_config: EntitySyncConfig, staged_records: int) -> Dict[str, Any]:
     logger = get_run_logger()
     metrics = {
@@ -119,3 +119,7 @@ def sync_entities(config_block: Optional[str] = None, entities_to_sync: Optional
     return Completed(
         message='Flujo de sincronización concluido de manera exitosa. Se actualizaron todas las entidades solicitadas. evisa los detalles de ejecución en el artifact correspondiente.',
         result=run_metrics)
+
+
+if __name__ == '__main__':
+    sync_entities(config_block='config-bc-mexico')

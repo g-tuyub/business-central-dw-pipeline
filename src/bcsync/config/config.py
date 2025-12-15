@@ -77,6 +77,7 @@ class Config(BaseSettings):
 
     @classmethod
     def from_prefect_block(cls, block_name : str) -> 'Config':
+        from bcsync.config.config_block import ConfigBlock
 
         block = ConfigBlock.load(block_name)
 
