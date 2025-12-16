@@ -13,8 +13,11 @@ dependencies = [
     "python-dotenv",
     "pydantic>=2.0",
     "pyodbc>=4.0",
-    "requests>=2.0"
+    "requests>=2.0",
+    "typer"
 
 ]
 [tool.setuptools.packages.find]
 where = ["src"]
+[project.scripts]
+bcsync = "bcsync.cli.app:main"

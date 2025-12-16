@@ -5,6 +5,8 @@ from sqlalchemy import text
 from bcsync.db.constants import SQL_CONTEXT
 from bcsync.db.models.base import Base
 from bcsync.db.events import register_all_listeners
+from bcsync.db.engine import get_engine
+from bcsync.config.config import Config
 from bcsync.db.models import staging, core
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -45,3 +47,10 @@ def deploy_procedures(engine):
             except Exception as e:
                 logger.error(f'Failed to create procedure {relative_path}. Error: {e}')
                 raise e
+
+
+def deploy_db()-> None:
+    config = Config()
+    engine = get_engine(config.db.connection_string)
+    create_tables_and_schema(engine)
+    deploy_procedures(engine)

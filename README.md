@@ -80,31 +80,21 @@ Si tu archivo .env apunta a un servidor compartido donde el Data Warehouse ya es
 
 **Nota**: El script de inicialización es idempotente. Si los objetos ya existen, verificará su estado o los actualizará sin borrar datos, aún así, se recomienda precaución en entorno productivo.
 
-### 5. Configuración del orquestador (Prefect)
+### 5. Ejecución:
 
-Antes de ejecutar, para visualizar los flujos tienes dos opciones:
-
-#### Modo Servidor:
-
-Conecta tu entorno local a un servidor de prefect ya existente.
-
-Ejecuta en tu terminal:
-
+Si deseas visualizar y monitorear las ejecuciones en un servidor de Prefect ya existente, configura la URL de la API:
 ```bash
 prefect config set PREFECT_API_URL=http://localhost:4200/api
 ```
 Si utilizas un servidor remoto, reemplaza localhost por la IP o dominio correspondiente.
 
-#### Modo Efímero:
-Si no tienes el servidor de Prefect corriendo, puedes ejecutar los flujos en modo "offline", sin necesidad de configurar el orquestador.
+Si no se configura esta variable, los flujos se ejecutarán en modo efímero.
 
-### 6. Ejecución:
-Una vez asegurada la conexión a SQL, la existencia del esquema y la configuración del orquestador, para confirmar el funcionamiento del motor de sincronización sin
-ejecutar una carga masiva, ejecuta el siguiente comando:
+Una vez asegurada la conexión a SQL Server y la existencia del esquema, puedes ejecutar una sincronización de prueba con el siguiente comando:
 
 ```bash
 bcsync sync customer
 ```
-Este script ejecuta una sincronización de la tabla: customer.
+Este comando ejecuta una sincronización de la tabla: customer.
 
-Si este flujo se ejecuta con éxito, confirma que has configurado correctamente tu entorno y ya puedes proceder a ejecutar o desplegar flujos completos.
+Si la ejecución finaliza correctamente, confirma que el entorno está correctamente configurado y que el motor está listo para ejecutar sincronizaciones completas o programadas.
