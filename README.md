@@ -19,9 +19,8 @@ La solución incluye:
 La solución está diseñada para ser **reproducible, extensible y automatizada**, 
 cubriendo todo el ciclo de integración de datos desde el ERP en múltiples empresas, hasta el Data Warehouse.
 
-## Arquitectura General
 
-![Arquitectura General](docs/diagrams/architecture-diagram.md)
+[Diagrama de arquitectura general](docs/diagrams/architecture-diagram.png)
 
 ## *Stack* tecnológico
 
