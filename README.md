@@ -103,7 +103,7 @@ Si tu archivo .env apunta a un servidor compartido donde el Data Warehouse ya es
 
 **Nota**: El script de inicialización es idempotente. Si los objetos ya existen, verificará su estado o los actualizará sin borrar datos, aún así, se recomienda precaución en entorno productivo.
 
-### 5. Configuración del Orquestrador (Prefect)
+### 5. Configuración del orquestador (Prefect)
 
 Antes de ejecutar, para visualizar los flujos tienes dos opciones:
 
@@ -119,11 +119,10 @@ prefect config set PREFECT_API_URL=http://localhost:4200/api
 Si utilizas un servidor remoto, reemplaza localhost por la IP o dominio correspondiente.
 
 #### Modo Efímero:
-Si no tienes el servidor de Prefect corriendo, el orquestador funcionará en modo "offline" usando una base de datos temporal. 
-No se requiere configuración adicional, pero no podrás visualizar el historial de ejecuciones en la UI.
+Si no tienes el servidor de Prefect corriendo, puedes ejecutar los flujos en modo "offline", sin necesidad de configurar el orquestador.
 
 ### 6. Ejecución:
-Una vez asegurada la conexión a SQL, la existencia del esquema y la configuración del orquestrador, para confirmar el funcionamiento del motor de sincronización sin
+Una vez asegurada la conexión a SQL, la existencia del esquema y la configuración del orquestador, para confirmar el funcionamiento del motor de sincronización sin
 ejecutar una carga masiva, ejecuta el siguiente script de verificación:
 
 ```bash
