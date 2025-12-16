@@ -15,11 +15,6 @@ La solución incluye:
 - Ejecución de flujos de sincronización en contenedores **Docker**.
 
 
-
-La solución está diseñada para ser **reproducible, extensible y automatizada**, 
-cubriendo todo el ciclo de integración de datos desde el ERP en múltiples empresas, hasta el Data Warehouse.
-
-
 [Diagrama de arquitectura general](docs/diagrams/architecture-diagram.png)
 
 ## *Stack* tecnológico
@@ -50,38 +45,20 @@ cubriendo todo el ciclo de integración de datos desde el ERP en múltiples empr
 * **Business Central:** La extensión (.app) que expone la API, debe estar instalada y activa en el entorno de Business Central.
 * **SQL Server:** Usuario con permisos elevados en la base de datos, ya que se gestionan y modifican esquemas. (db_owner)
 ### 2. Instalación
-Clona el repositorio e instala las dependencias:
-
-
-
+Clona el repositorio e instala el proyecto en modo desarrollo:
 ```bash
-git clone [https://dev.azure.com/{myorg}/{myrepo}](https://dev.azure.com/{myorg}/{myrepo})
-cd myrepo
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+git clone <url-repositorio>
+cd <nombre-repositorio>
+python -m venv .venv
+source .venv/bin/activate   # Linux / Mac
+# .venv\Scripts\activate    # Windows
 pip install -e .
 ```
 ### 3. Configuración
-Copia el archivo .env de ejemplo: 
+Copia el archivo .env.example a .env y reemplaza los valores con las credenciales correspondientes a tu entorno:
 
 ```bash
 cp .env.example .env
-```
-Reemplaza las credenciales del registro de aplicación y los accesos de SQL Server:
-```bash
-API_CLIENT_ID=mi_id_registro_aplicacion
-API_CLIENT_SECRET=mi_secreto_de_cliente
-API_TENANT_ID=id_mi_tenant
-API_COMPANY_ID=id_mi_empresa
-API_PUBLISHER=publicante_api
-API_GROUP=grupo_api
-API_VERSION=version_api
-API_ENVIRONMENT=mi_entorno_de_bc
-DB_TRUSTED_CONNECTION=0 # Usar 1 para Windows Auth, 0 para SQL Auth
-DB_HOST=server_ip
-DB_DATABASE=nombre_base_de_datos
-DB_USERNAME=mi_usuario
-DB_PASSWORD=mi_contraseña
 ```
 ### 4. Preparación Base de datos
 
@@ -89,13 +66,13 @@ DB_PASSWORD=mi_contraseña
 Si estás levantando el proyecto desde cero en local o en un servidor nuevo, primero asegúrate de crear la base de datos nueva (debe coincidir con el nombre en tu .env):
 
 ```tsql
-CREATE DATABASE mi_bd
+CREATE DATABASE example_db
 ```
 
-Posteriormente, ejecuta el script de inicialización para crear el esquema de la base de datos:
+Posteriormente, ejecuta el comando de inicialización para crear el esquema de la base de datos:
 
 ```bash
-python scripts/deploy_db.py
+bcsync deploy-db
 ```
 
 #### Entorno Existente:
@@ -123,18 +100,11 @@ Si no tienes el servidor de Prefect corriendo, puedes ejecutar los flujos en mod
 
 ### 6. Ejecución:
 Una vez asegurada la conexión a SQL, la existencia del esquema y la configuración del orquestador, para confirmar el funcionamiento del motor de sincronización sin
-ejecutar una carga masiva, ejecuta el siguiente script de verificación:
+ejecutar una carga masiva, ejecuta el siguiente comando:
 
 ```bash
-python scripts/run_customer_sync.py
+bcsync sync customer
 ```
 Este script ejecuta una sincronización de la tabla: customer.
 
-Si este flujo se ejecuta con éxito, confirma que:
-
-* La extensión de Business Central está correctamente instalada en tu entorno.
-* Tu conexión a la API de Business Central esta correctamente configurada.
-* Tu usuario de SQL Server tiene los permisos adecuados en la BD.
-* El esquema de la BD se creó y funciona correctamente.
-
-Ya puedes proceder a ejecutar o desplegar flujos completos desde tu entorno.
+Si este flujo se ejecuta con éxito, confirma que has configurado correctamente tu entorno y ya puedes proceder a ejecutar o desplegar flujos completos.
