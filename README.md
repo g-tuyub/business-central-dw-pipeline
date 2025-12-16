@@ -1,4 +1,5 @@
 # Motor de sincronización de Business Central a Data Warehouse en SQL Server
+#
 Solución empresarial de sincronización entre **Microsoft Dynamics 365 Business Central** y un **Data Warehouse** multiempresa
 implementado en **SQL Server**.
 
@@ -31,9 +32,9 @@ cubriendo todo el ciclo de integración de datos desde el ERP en múltiples empr
 - **Azure DevOps** (repositorio y CI/CD)
 
 ## Arquitectura General
+
 ```mermaid
 graph LR
-    %% Nodos
     BC[("Business Central<br>(Custom API)")]
     
     subgraph "Execution Layer (Docker)"
@@ -57,19 +58,13 @@ graph LR
     SPs -->|Update/Insert| Core
     Core -->|Expose Data| Views
 
-    %% Estilos Actualizados (Más claros y texto negro explícito)
-    %% BC: Lila Pastel
+
     style BC fill:#E1E1FF,stroke:#444,stroke-width:2px,color:#000
-    %% Py: Verde Pastel
     style Py fill:#E1FFE1,stroke:#444,stroke-width:2px,color:#000
-    %% Tables: Amarillo Pastel
     style Staging fill:#FFFFE1,stroke:#444,stroke-width:2px,color:#000
     style Core fill:#FFFFE1,stroke:#444,stroke-width:2px,color:#000
-    %% SPs: Naranja Pastel (con guiones)
     style SPs fill:#FFE9D2,stroke:#444,stroke-width:2px,stroke-dasharray: 5 5,color:#000
-    %% Views: Amarillo Pastel (con guiones)
     style Views fill:#FFFFE1,stroke:#444,stroke-width:2px,stroke-dasharray: 5 5,color:#000
-    %% Prefect: Círculo con borde suave
     style Prefect fill:#fff,stroke:#7B1FA2,stroke-width:2px,color:#000
 ```
 ## ¿Cómo instalar para desarrollo local?
