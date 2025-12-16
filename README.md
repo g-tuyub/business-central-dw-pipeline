@@ -47,7 +47,7 @@ cubriendo todo el ciclo de integración de datos desde el ERP en múltiples empr
 #### Permisos y accesos:
 
 * **Azure:** Se requiere un **App Registration** en Azure con permiso *API.ReadWrite.All* y Admin Consent otorgado.
-* **Business Central:** La extensión (.app) que expone la api, debe estar instalada y activa en el entorno de Business Central.
+* **Business Central:** La extensión (.app) que expone la API, debe estar instalada y activa en el entorno de Business Central.
 * **SQL Server:** Usuario con permisos elevados en la base de datos, ya que se gestionan y modifican esquemas. (db_owner)
 ### 2. Instalación
 Clona el repositorio e instala las dependencias:
@@ -77,7 +77,7 @@ API_PUBLISHER=publicante_api
 API_GROUP=grupo_api
 API_VERSION=version_api
 API_ENVIRONMENT=mi_entorno_de_bc
-DB_TRUSTED_CONNECTION=0 #windows auth mode en SQL Server, 0 para utilizar usuario/contraseña.
+DB_TRUSTED_CONNECTION=0 # Usar 1 para Windows Auth, 0 para SQL Auth
 DB_HOST=server_ip
 DB_DATABASE=nombre_base_de_datos
 DB_USERNAME=mi_usuario
