@@ -3,7 +3,9 @@ from bcsync.config.config import Config
 from bcsync.db.deploy import deploy_db
 from bcsync.db.engine import get_engine
 
-app = typer.Typer(help="Inicializa o actualiza el esquema del Data Warehouse")
+app = typer.Typer(help="Inicializa o actualiza el esquema del Data Warehouse",
+                  invoke_without_command=True,
+                  )
 
 @app.callback()
 def deploy():
