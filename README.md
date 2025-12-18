@@ -50,7 +50,7 @@ Para que la orquestación funcione correctamente, se deben garantizar los siguie
 
 * **Dynamics 365 Business Central:**
     * **Dependencia Crítica:** La extensión `.app` que expone la API debe estar instalada y activa en el entorno.
-    * Repo de la extensión: [business-central-datawarehouse-api-ext](./https://dev.azure.com/dkt-devops/business-central-datawarehouse-api-ext)
+    * Repo de la extensión: [business-central-datawarehouse-api-ext](https://dev.azure.com/dkt-devops/business-central-datawarehouse-api-ext)
 
 * **SQL Server (Data Warehouse):**
     * Usuario de base de datos con permisos elevados (**db_owner**).
