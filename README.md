@@ -39,11 +39,24 @@ La solución incluye:
 * Git
 * Docker Desktop (opcional para desarrollo, requerido para simular el entorno de producción)
 
-#### Permisos y accesos:
+## Prerrequisitos y Accesos
 
-* **Azure:** Se requiere un **App Registration** en Azure con permiso *API.ReadWrite.All* y Admin Consent otorgado.
-* **Business Central:** La extensión (.app) que expone la API, debe estar instalada y activa en el entorno de Business Central.
-* **SQL Server:** Usuario con permisos elevados en la base de datos, ya que se gestionan y modifican esquemas. (db_owner)
+Para que la orquestación funcione correctamente, se deben garantizar los siguientes accesos externos antes del despliegue:
+
+* **Azure Active Directory (Entra ID):**
+    * Se requiere un **App Registration** en Azure para la autenticación OAuth2 (Service-to-Service).
+    * Permisos: `API.ReadWrite.All` (Dynamics 365 Business Central).
+    * **Importante:** Debe tener el *Admin Consent* otorgado por un administrador del tenant.
+
+* **Dynamics 365 Business Central:**
+    * **Dependencia Crítica:** La extensión `.app` que expone la API debe estar instalada y activa en el entorno.
+    * Repo de la extensión: [business-central-datawarehouse-api-ext](./https://dev.azure.com/dkt-devops/business-central-datawarehouse-api-ext)
+
+* **SQL Server (Data Warehouse):**
+    * Usuario de base de datos con permisos elevados (**db_owner**).
+    * **¿Por qué?** Los flujos de Prefect gestionan el esquema completo: crean tablas (`CREATE`), modifican columnas (`ALTER`) e insertan datos (`INSERT/MERGE`).
+
+---
 ### 2. Instalación
 Clona el repositorio e instala el proyecto en modo desarrollo:
 ```bash
