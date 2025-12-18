@@ -1,3 +1,7 @@
+import os
+#force to run ephemereal mode for cli interactions
+os.environ["PREFECT_SERVER_ALLOW_EPHEMERAL_MODE"] = "true"
+
 import typer
 from bcsync.core.types import BCEntity
 from bcsync.config.config import Config
@@ -22,7 +26,7 @@ def sync(
     """
     Ejecuta la sincronización de una o más entidades.
     """
-
+    #forces flows to run on ephemereal mode
     if all_entities:
         entities = None
     elif not entities:
