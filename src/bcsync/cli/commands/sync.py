@@ -4,7 +4,8 @@ from bcsync.config.config import Config
 from bcsync.flows import sync_entities
 from typing import Optional, List
 
-app = typer.Typer(help="Ejecuta sincronizaciones de entidades de Business Central que se encuentran registradas.")
+app = typer.Typer(help="Ejecuta sincronizaciones de entidades de Business Central que se encuentran registradas.",
+                  invoke_without_command=True)
 
 @app.callback()
 def sync(
