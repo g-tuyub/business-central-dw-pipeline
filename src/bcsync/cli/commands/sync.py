@@ -6,8 +6,8 @@ from typing import Optional, List
 
 app = typer.Typer(help="Ejecuta sincronizaciones de entidades de Business Central que se encuentran registradas.")
 
-@app.command()
-def run(
+@app.callback()
+def sync(
     entities: List[BCEntity] = typer.Argument(
         None,
         help="Entidades a sincronizar (ej: customer item vendor)"
