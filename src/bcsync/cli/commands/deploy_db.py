@@ -5,8 +5,8 @@ from bcsync.db.engine import get_engine
 
 app = typer.Typer(help="Inicializa o actualiza el esquema del Data Warehouse")
 
-@app.command()
-def run():
+@app.callback()
+def deploy():
     """
     Crea o actualiza esquemas, tablas, vistas y stored procedures.
     """
