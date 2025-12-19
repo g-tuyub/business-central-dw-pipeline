@@ -38,7 +38,7 @@ BEGIN
                 VALUES (
                     @unknown_id, -- id = -1
                     0, -- entry_no dummy
-                    '1900-01-01', '1900-01-01', NULL,
+                    @null_date, @null_date, NULL,
                     @unknown_text, @unknown_text, @unknown_text, @unknown_text,
                     @unknown_text, @unknown_id, -- Customer Unknown
                     @unknown_text, @unknown_id, -- Currency Unknown
@@ -170,7 +170,9 @@ BEGIN
                 T.closed_by_entry_no = S.closed_by_entry_no,
                 T.transaction_no = S.transaction_no,
                 T.reversed_by_entry_no = S.reversed_by_entry_no,
-                T.reversed_entry_no = S.reversed_entry_no
+                T.reversed_entry_no = S.reversed_entry_no,
+                T.modified_at = SYSUTCDATETIME()
+
 
         WHEN NOT MATCHED BY TARGET THEN
             INSERT (

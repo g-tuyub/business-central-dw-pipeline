@@ -41,7 +41,7 @@ BEGIN
                 )
                 VALUES (
                     @unknown_id, -- ID -1
-                    @unknown_text, '1900-01-01', '1900-01-01', '1900-01-01',
+                    @unknown_text, @null_date, @null_date, @null_date,
                     @unknown_text, @unknown_id,
                     @unknown_text, @unknown_id,
                     @unknown_text, @unknown_id,
@@ -194,6 +194,7 @@ BEGIN
                 T.remaining_amount = S.remaining_amount,
                 T.cancelled = S.cancelled,
                 T.reversed = S.reversed,
+                T.modified_at = SYSUTCDATETIME(),
                 T.system_modified_by_id = S.system_modified_by_id
 
         WHEN NOT MATCHED BY TARGET THEN

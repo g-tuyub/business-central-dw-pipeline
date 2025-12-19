@@ -1,5 +1,5 @@
 from bcsync.api.schemas.base import BCEntityBase
-from bcsync.api.schemas.types import BCString
+from bcsync.api.schemas.types import BCString, BCDecimal
 from datetime import date
 from pydantic import Field
 from typing import Optional
@@ -26,9 +26,9 @@ class SalesInvoiceHeader(BCEntityBase):
     applies_to_document_no: BCString = Field(alias="appliesToDocumentNo")
     no_series: BCString = Field(alias="noSeries")
     customer_ledger_entry_no: Optional[int] = Field(alias="custLedgerEntryNo")
-    amount: Optional[float]
-    amount_including_vat: Optional[float] = Field(alias="amountIncludingVAT")
-    invoice_discount_amount: Optional[float] = Field(alias="invoiceDiscountAmount")
-    remaining_amount: Optional[float] = Field(alias="remainingAmount")
+    amount: BCDecimal
+    amount_including_vat: BCDecimal = Field(alias="amountIncludingVAT")
+    invoice_discount_amount: BCDecimal = Field(alias="invoiceDiscountAmount")
+    remaining_amount: BCDecimal = Field(alias="remainingAmount")
     cancelled: Optional[bool]
     reversed: Optional[bool]

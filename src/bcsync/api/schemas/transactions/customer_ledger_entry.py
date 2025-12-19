@@ -1,8 +1,7 @@
-from decimal import Decimal
 from typing import Optional
 from pydantic import Field
 from bcsync.api.schemas.base import BCEntityBase
-from bcsync.api.schemas.types import BCString
+from bcsync.api.schemas.types import BCString, BCDecimal
 from datetime import date
 
 
@@ -25,13 +24,13 @@ class CustomerLedgerEntry(BCEntityBase):
     dimension_6_code: BCString = Field(alias="shortcutDimension6Code")
     dimension_7_code: BCString = Field(alias="shortcutDimension7Code")
     dimension_8_code: BCString = Field(alias="shortcutDimension8Code")
-    amount: Optional[Decimal] = Field(alias="amount")
-    original_amount: Optional[Decimal] = Field(alias="originalAmount")
-    remaining_amount: Optional[Decimal] = Field(alias="remainingAmount")
-    debit_amount: Optional[Decimal] = Field(alias="debitAmount")
-    credit_amount: Optional[Decimal] = Field(alias="creditAmount")
-    sales_lcy: Optional[Decimal] = Field(alias="salesLCY")
-    profit_lcy: Optional[Decimal] = Field(alias="profitLCY")
+    amount: Optional[BCDecimal] = Field(alias="amount")
+    original_amount: Optional[BCDecimal] = Field(alias="originalAmount")
+    remaining_amount: Optional[BCDecimal] = Field(alias="remainingAmount")
+    debit_amount: Optional[BCDecimal] = Field(alias="debitAmount")
+    credit_amount: Optional[BCDecimal] = Field(alias="creditAmount")
+    sales_lcy: Optional[BCDecimal] = Field(alias="salesLCY")
+    profit_lcy: Optional[BCDecimal] = Field(alias="profitLCY")
     open: Optional[bool] = Field(alias="open")
     positive: Optional[bool] = Field(alias="positive")
     reversed: Optional[bool] = Field(alias="reversed")

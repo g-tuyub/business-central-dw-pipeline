@@ -42,7 +42,7 @@ BEGIN
                     0, 0, 0, 0,
                     0, 0, 0,
                     @unknown_text, @unknown_text,
-                    @unknown_text, 0, '1900-01-01', 0,
+                    @unknown_text, 0, @null_date, 0,
                     @unknown_text, 0,
                     @null_uuid, @null_company_id, @min_system_datetime, @min_system_datetime,
                     @null_uuid, @null_uuid
@@ -171,7 +171,9 @@ BEGIN
                 T.shipment_date = S.shipment_date,
                 T.drop_shipment = S.drop_shipment,
                 T.order_no = S.order_no,
-                T.order_line_no = S.order_line_no
+                T.order_line_no = S.order_line_no,
+                T.modified_at = SYSUTCDATETIME()
+
 
         WHEN NOT MATCHED BY TARGET THEN
             INSERT (
