@@ -37,6 +37,9 @@ class BCEntity(StrEnum):
     SHIPMENT_METHOD = "shipment_method"
     VENDOR = "vendor"
     VENDOR_POSTING_GROUP = "vendor_posting_group"
+    CUSTOMER_LEDGER_ENTRY = "customer_ledger_entry"
+    SALES_INVOICE_HEADER = "sales_invoice_header"
+    SALES_INVOICE_LINE = "sales_invoice_line"
 
 
 @dataclass(frozen=True)

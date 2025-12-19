@@ -105,5 +105,24 @@ SYNC_TARGETS = {
         validator_model=schemas.VendorPostingGroup,
         staging_model=staging.VendorPostingGroup,
         core_model=core.VendorPostingGroup,
+    ),
+    BCEntity.CUSTOMER_LEDGER_ENTRY: EntitySyncConfig(
+        endpoint="customerLedgerEntries",
+        validator_model=schemas.CustomerLedgerEntry,
+        staging_model=staging.CustomerLedgerEntry,
+        core_model=core.CustomerLedgerEntry,
+    ),
+    BCEntity.SALES_INVOICE_HEADER: EntitySyncConfig(
+        endpoint="salesInvoices",
+        validator_model=schemas.SalesInvoiceHeader,
+        staging_model=staging.SalesInvoiceHeader,
+        core_model=core.SalesInvoiceHeader,
+
+    ),
+    BCEntity.SALES_INVOICE_LINE: EntitySyncConfig(
+        endpoint="salesInvoiceLines",
+        validator_model=schemas.SalesInvoiceLine,
+        staging_model=staging.SalesInvoiceLine,
+        core_model=core.SalesInvoiceLine,
     )
 }

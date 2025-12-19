@@ -1,0 +1,219 @@
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_sales_invoice_line]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+    DECLARE @merge_stats TABLE (action_type VARCHAR(10))
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- =========================================================================
+        -- 1. Insertar Miembro Desconocido (-1)
+        --    Necesario para mantener integridad referencial si llegan hijos huérfanos
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[sales_invoice_line] WHERE [id] = @unknown_id)
+            BEGIN
+                SET IDENTITY_INSERT [{{ core_schema }}].[sales_invoice_line] ON;
+
+                INSERT INTO [{{ core_schema }}].[sales_invoice_line] (
+                    id,
+                    document_no, line_no,
+                    sales_invoice_header_id, -- FK Obligatoria
+                    line_type, line_object_code, item_id,
+                    location_code, location_id,
+                    quantity, unit_price, amount, amount_including_vat,
+                    vat_percentage, line_discount_percentage, line_discount_amount,
+                    dimension_1_code, dimension_2_code,
+                    shipment_no, shipment_line_no, shipment_date, drop_shipment,
+                    order_no, order_line_no,
+                    system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id
+                )
+                VALUES (
+                    @unknown_id,
+                    @unknown_text, 0,
+                    @unknown_id, -- Apunta al Header -1
+                    @unknown_text, @unknown_text, NULL,
+                    @unknown_text, @unknown_id,
+                    0, 0, 0, 0,
+                    0, 0, 0,
+                    @unknown_text, @unknown_text,
+                    @unknown_text, 0, @null_date, 0,
+                    @unknown_text, 0,
+                    @null_uuid, @null_company_id, @min_system_datetime, @min_system_datetime,
+                    @null_uuid, @null_uuid
+                )
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[sales_invoice_line] OFF;
+            END;
+
+        -- =========================================================================
+        -- 2. Preparar Fuente de Datos (Lookups & Joins)
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT
+                stg.system_id,
+                stg.company_id,
+                stg.system_created_at,
+                stg.system_modified_at,
+                stg.system_created_by_id,
+                stg.system_modified_by_id,
+
+                stg.document_no,
+                stg.line_no,
+
+                CASE
+                    WHEN h.id IS NULL THEN @unknown_id
+                    ELSE h.id
+                END AS sales_invoice_header_id,
+
+                -- Definición de la Línea
+                stg.line_type,
+                stg.line_object_code,
+
+                -- Solo buscamos en Item si el tipo es 'Item'
+                CASE
+                    WHEN stg.line_type = 'Item' THEN
+                        CASE
+                            WHEN ISNULL(stg.line_object_code, '') = '' THEN NULL
+                            WHEN i.id IS NULL THEN @unknown_id
+                            ELSE i.id
+                        END
+                    ELSE NULL -- Si es Cuenta Contable, Recurso, etc., Item ID es NULL
+                END AS item_id,
+
+                stg.location_code,
+                CASE
+                    WHEN stg.location_code IS NULL THEN NULL
+                    WHEN loc.id IS NULL THEN @unknown_id
+                    ELSE loc.id
+                END AS location_id,
+
+                -- Métricas
+                stg.quantity,
+                stg.unit_price,
+                stg.amount,
+                stg.amount_including_vat,
+                stg.vat_percentage,
+                stg.line_discount_percentage,
+                stg.line_discount_amount,
+
+                -- Dimensiones
+                stg.dimension_1_code,
+                stg.dimension_2_code,
+
+                -- Lineage / Logística
+                stg.shipment_no,
+                stg.shipment_line_no,
+                stg.shipment_date,
+                stg.drop_shipment,
+                stg.order_no,
+                stg.order_line_no
+
+            FROM {{staging_schema}}.sales_invoice_line AS stg
+
+            -- Lookup: Header (Padre)
+            LEFT JOIN {{ core_schema }}.sales_invoice_header h
+                ON stg.document_no = h.document_no
+                AND stg.company_id = h.company_id
+
+            -- Lookup: Location
+            LEFT JOIN {{ core_schema }}.location loc
+                ON stg.location_code = loc.code
+                AND stg.company_id = loc.company_id
+
+            -- Lookup: Item (Maestro de Productos)
+            LEFT JOIN {{ core_schema }}.item i
+                ON stg.line_object_code = i.code
+                AND stg.company_id = i.company_id
+        )
+
+        -- =========================================================================
+        -- 3. Ejecutar MERGE
+        -- =========================================================================
+        MERGE INTO {{ core_schema }}.sales_invoice_line AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at THEN
+            UPDATE SET
+                T.system_modified_at = S.system_modified_at,
+                T.system_modified_by_id = S.system_modified_by_id,
+
+                T.document_no = S.document_no,
+                T.line_no = S.line_no,
+                T.sales_invoice_header_id = S.sales_invoice_header_id,
+
+                T.line_type = S.line_type,
+                T.line_object_code = S.line_object_code,
+                T.item_id = S.item_id,
+
+                T.location_code = S.location_code,
+                T.location_id = S.location_id,
+
+                T.quantity = S.quantity,
+                T.unit_price = S.unit_price,
+                T.amount = S.amount,
+                T.amount_including_vat = S.amount_including_vat,
+                T.vat_percentage = S.vat_percentage,
+                T.line_discount_percentage = S.line_discount_percentage,
+                T.line_discount_amount = S.line_discount_amount,
+
+                T.dimension_1_code = S.dimension_1_code,
+                T.dimension_2_code = S.dimension_2_code,
+
+                T.shipment_no = S.shipment_no,
+                T.shipment_line_no = S.shipment_line_no,
+                T.shipment_date = S.shipment_date,
+                T.drop_shipment = S.drop_shipment,
+                T.order_no = S.order_no,
+                T.order_line_no = S.order_line_no,
+                T.modified_at = SYSUTCDATETIME()
+
+
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (
+                document_no, line_no,
+                sales_invoice_header_id,
+                line_type, line_object_code, item_id,
+                location_code, location_id,
+                quantity, unit_price, amount, amount_including_vat,
+                vat_percentage, line_discount_percentage, line_discount_amount,
+                dimension_1_code, dimension_2_code,
+                shipment_no, shipment_line_no, shipment_date, drop_shipment,
+                order_no, order_line_no,
+                system_id, company_id, system_created_at, system_modified_at,
+                system_created_by_id, system_modified_by_id
+            )
+            VALUES (
+                S.document_no, S.line_no,
+                S.sales_invoice_header_id,
+                S.line_type, S.line_object_code, S.item_id,
+                S.location_code, S.location_id,
+                S.quantity, S.unit_price, S.amount, S.amount_including_vat,
+                S.vat_percentage, S.line_discount_percentage, S.line_discount_amount,
+                S.dimension_1_code, S.dimension_2_code,
+                S.shipment_no, S.shipment_line_no, S.shipment_date, S.drop_shipment,
+                S.order_no, S.order_line_no,
+                S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                S.system_created_by_id, S.system_modified_by_id
+            )
+        OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        THROW
+    END CATCH
+END;
+GO

@@ -1,0 +1,251 @@
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_sales_invoice_header]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+    DECLARE @merge_stats TABLE (action_type VARCHAR(10))
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- =========================================================================
+        -- 1. Ensure unknown member (@unknown_id = -1) exists
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[sales_invoice_header] WHERE [id] = @unknown_id)
+            BEGIN
+                -- Activamos insercion manual de identidad solo para el ID -1
+                SET IDENTITY_INSERT [{{ core_schema }}].[sales_invoice_header] ON;
+
+                INSERT INTO [{{ core_schema }}].[sales_invoice_header] (
+                    id,
+                    document_no, posting_date, document_date, shipment_date,
+                    sell_to_customer_code, sell_to_customer_id,
+                    bill_to_customer_code, bill_to_customer_id,
+                    ship_to_address_code, ship_to_address_id,
+                    shipment_method_code, shipment_method_id,
+                    location_code, location_id,
+                    salesperson_code, salesperson_id,
+                    currency_code, currency_id,
+                    payment_term_code, payment_term_id,
+                    payment_method_code, payment_method_id,
+                    order_no, external_document_no, applies_to_document_no, no_series,
+                    customer_ledger_entry_no, customer_ledger_entry_id,
+                    dimension_1_code, dimension_2_code,
+                    amount, amount_including_vat, invoice_discount_amount, remaining_amount,
+                    cancelled, reversed,
+                    system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id
+                )
+                VALUES (
+                    @unknown_id, -- ID -1
+                    @unknown_text, @null_date, @null_date, @null_date,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_id,
+                    @unknown_text, @unknown_text, @unknown_text, @unknown_text,
+                    0, @unknown_id, -- Link al ledger id desconocido
+                    @unknown_text, @unknown_text,
+                    0, 0, 0, 0,
+                    0, 0,
+                    @null_uuid, @null_company_id, @min_system_datetime, @min_system_datetime,
+                    @null_uuid, @null_uuid
+                )
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[sales_invoice_header] OFF;
+            END;
+
+        -- =========================================================================
+        -- 2. Lookup & MERGE
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT
+                stg.system_id,
+                stg.company_id,
+                stg.system_created_at,
+                stg.system_modified_at,
+                stg.system_created_by_id,
+                stg.system_modified_by_id,
+
+                stg.document_no, -- Business Key
+                stg.posting_date,
+                stg.document_date,
+                stg.shipment_date,
+
+                stg.sell_to_customer_code,
+                CASE WHEN stg.sell_to_customer_code IS NULL THEN NULL
+                     WHEN cust_sell.id IS NULL THEN @unknown_id ELSE cust_sell.id END AS sell_to_customer_id,
+
+                stg.bill_to_customer_code,
+                CASE WHEN stg.bill_to_customer_code IS NULL THEN NULL
+                     WHEN cust_bill.id IS NULL THEN @unknown_id ELSE cust_bill.id END AS bill_to_customer_id,
+
+                stg.ship_to_code AS ship_to_address_code,
+                CASE WHEN stg.ship_to_code IS NULL THEN NULL
+                     WHEN ship.id IS NULL THEN @unknown_id ELSE ship.id END AS ship_to_address_id,
+
+                stg.shipment_method_code,
+                CASE WHEN stg.shipment_method_code IS NULL THEN NULL
+                     WHEN sm.id IS NULL THEN @unknown_id ELSE sm.id END AS shipment_method_id,
+
+                stg.location_code,
+                CASE WHEN stg.location_code IS NULL THEN NULL
+                     WHEN loc.id IS NULL THEN @unknown_id ELSE loc.id END AS location_id,
+
+                stg.salesperson_code,
+                CASE WHEN stg.salesperson_code IS NULL THEN NULL
+                     WHEN sp.id IS NULL THEN @unknown_id ELSE sp.id END AS salesperson_id,
+
+                stg.currency_code,
+                CASE WHEN stg.currency_code IS NULL THEN NULL
+                     WHEN cur.id IS NULL THEN @unknown_id ELSE cur.id END AS currency_id,
+
+                stg.payment_term_code AS payment_term_code,
+                CASE WHEN stg.payment_term_code IS NULL THEN NULL
+                     WHEN pt.id IS NULL THEN @unknown_id ELSE pt.id END AS payment_term_id,
+
+                stg.payment_method_code,
+                CASE WHEN stg.payment_method_code IS NULL THEN NULL
+                     WHEN pm.id IS NULL THEN @unknown_id ELSE pm.id END AS payment_method_id,
+
+                stg.order_no,
+                stg.external_document_no,
+                stg.applies_to_document_no,
+                stg.no_series,
+                stg.dimension_1_code,
+                stg.dimension_2_code,
+
+                stg.customer_ledger_entry_no,
+                CASE
+                     WHEN stg.customer_ledger_entry_no IS NULL OR stg.customer_ledger_entry_no = 0 THEN @unknown_id
+                     WHEN cle.id IS NULL THEN @unknown_id
+                     ELSE cle.id
+                END AS customer_ledger_entry_id,
+
+                stg.amount,
+                stg.amount_including_vat,
+                stg.invoice_discount_amount,
+                stg.remaining_amount,
+                stg.cancelled,
+                stg.reversed
+
+            FROM {{staging_schema}}.sales_invoice_header AS stg
+            LEFT JOIN {{ core_schema }}.customer cust_sell ON stg.sell_to_customer_code = cust_sell.code AND stg.company_id = cust_sell.company_id
+            LEFT JOIN {{ core_schema }}.customer cust_bill ON stg.bill_to_customer_code = cust_bill.code AND stg.company_id = cust_bill.company_id
+            LEFT JOIN {{ core_schema }}.ship_to_address ship ON stg.ship_to_code = ship.code AND stg.sell_to_customer_code = ship.customer_code AND stg.company_id = ship.company_id
+            LEFT JOIN {{ core_schema }}.shipment_method sm ON stg.shipment_method_code = sm.code AND stg.company_id = sm.company_id
+            LEFT JOIN {{ core_schema }}.location loc ON stg.location_code = loc.code AND stg.company_id = loc.company_id
+            LEFT JOIN {{ core_schema }}.salesperson sp ON stg.salesperson_code = sp.code AND stg.company_id = sp.company_id
+            LEFT JOIN {{ core_schema }}.currency cur ON stg.currency_code = cur.code AND stg.company_id = cur.company_id
+            LEFT JOIN {{ core_schema }}.payment_term pt ON stg.payment_term_code = pt.code AND stg.company_id = pt.company_id
+            LEFT JOIN {{ core_schema }}.payment_method pm ON stg.payment_method_code = pm.code AND stg.company_id = pm.company_id
+            -- Join al Ledger usando la Business Key (entry_no) para obtener la Surrogate Key (id)
+            LEFT JOIN {{ core_schema }}.customer_ledger_entry cle
+                ON stg.customer_ledger_entry_no = cle.entry_no AND stg.company_id = cle.company_id
+        )
+        MERGE INTO {{ core_schema }}.sales_invoice_header AS T
+        USING source_data AS S
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at THEN
+            UPDATE SET
+                T.system_modified_at = S.system_modified_at,
+                T.document_no = S.document_no,
+                T.posting_date = S.posting_date,
+                T.document_date = S.document_date,
+                T.shipment_date = S.shipment_date,
+                T.sell_to_customer_code = S.sell_to_customer_code,
+                T.sell_to_customer_id = S.sell_to_customer_id,
+                T.bill_to_customer_code = S.bill_to_customer_code,
+                T.bill_to_customer_id = S.bill_to_customer_id,
+                T.ship_to_address_code = S.ship_to_address_code,
+                T.ship_to_address_id = S.ship_to_address_id,
+                T.shipment_method_code = S.shipment_method_code,
+                T.shipment_method_id = S.shipment_method_id,
+                T.location_code = S.location_code,
+                T.location_id = S.location_id,
+                T.salesperson_code = S.salesperson_code,
+                T.salesperson_id = S.salesperson_id,
+                T.currency_code = S.currency_code,
+                T.currency_id = S.currency_id,
+                T.payment_term_code = S.payment_term_code,
+                T.payment_term_id = S.payment_term_id,
+                T.payment_method_code = S.payment_method_code,
+                T.payment_method_id = S.payment_method_id,
+                T.order_no = S.order_no,
+                T.external_document_no = S.external_document_no,
+                T.applies_to_document_no = S.applies_to_document_no,
+                T.no_series = S.no_series,
+                T.dimension_1_code = S.dimension_1_code,
+                T.dimension_2_code = S.dimension_2_code,
+                T.customer_ledger_entry_no = S.customer_ledger_entry_no,
+                T.customer_ledger_entry_id = S.customer_ledger_entry_id,
+                T.amount = S.amount,
+                T.amount_including_vat = S.amount_including_vat,
+                T.invoice_discount_amount = S.invoice_discount_amount,
+                T.remaining_amount = S.remaining_amount,
+                T.cancelled = S.cancelled,
+                T.reversed = S.reversed,
+                T.modified_at = SYSUTCDATETIME(),
+                T.system_modified_by_id = S.system_modified_by_id
+
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (
+                document_no, posting_date, document_date, shipment_date,
+                sell_to_customer_code, sell_to_customer_id,
+                bill_to_customer_code, bill_to_customer_id,
+                ship_to_address_code, ship_to_address_id,
+                shipment_method_code, shipment_method_id,
+                location_code, location_id,
+                salesperson_code, salesperson_id,
+                dimension_1_code, dimension_2_code,
+                currency_code, currency_id,
+                payment_term_code, payment_term_id,
+                payment_method_code, payment_method_id,
+                order_no, external_document_no, applies_to_document_no, no_series,
+                customer_ledger_entry_no, customer_ledger_entry_id,
+                amount, amount_including_vat, invoice_discount_amount, remaining_amount,
+                cancelled, reversed,
+                system_id, company_id, system_created_at, system_modified_at,
+                system_created_by_id, system_modified_by_id
+            )
+            VALUES (
+                S.document_no, S.posting_date, S.document_date, S.shipment_date,
+                S.sell_to_customer_code, S.sell_to_customer_id,
+                S.bill_to_customer_code, S.bill_to_customer_id,
+                S.ship_to_address_code, S.ship_to_address_id,
+                S.shipment_method_code, S.shipment_method_id,
+                S.location_code, S.location_id,
+                S.salesperson_code, S.salesperson_id,
+                S.dimension_1_code, S.dimension_2_code,
+                S.currency_code, S.currency_id,
+                S.payment_term_code, S.payment_term_id,
+                S.payment_method_code, S.payment_method_id,
+                S.order_no, S.external_document_no, S.applies_to_document_no, S.no_series,
+                S.customer_ledger_entry_no, S.customer_ledger_entry_id,
+                S.amount, S.amount_including_vat, S.invoice_discount_amount, S.remaining_amount,
+                S.cancelled, S.reversed,
+                S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                S.system_created_by_id, S.system_modified_by_id
+            )
+        OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        THROW
+    END CATCH
+END;
+GO
