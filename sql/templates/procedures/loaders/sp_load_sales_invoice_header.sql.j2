@@ -88,8 +88,8 @@ BEGIN
                 CASE WHEN stg.bill_to_customer_code IS NULL THEN NULL
                      WHEN cust_bill.id IS NULL THEN @unknown_id ELSE cust_bill.id END AS bill_to_customer_id,
 
-                stg.ship_to_code AS ship_to_address_code,
-                CASE WHEN stg.ship_to_code IS NULL THEN NULL
+                stg.ship_to_address_code,
+                CASE WHEN stg.ship_to_address_code IS NULL THEN NULL
                      WHEN ship.id IS NULL THEN @unknown_id ELSE ship.id END AS ship_to_address_id,
 
                 stg.shipment_method_code,
@@ -140,7 +140,7 @@ BEGIN
             FROM {{staging_schema}}.sales_invoice_header AS stg
             LEFT JOIN {{ core_schema }}.customer cust_sell ON stg.sell_to_customer_code = cust_sell.code AND stg.company_id = cust_sell.company_id
             LEFT JOIN {{ core_schema }}.customer cust_bill ON stg.bill_to_customer_code = cust_bill.code AND stg.company_id = cust_bill.company_id
-            LEFT JOIN {{ core_schema }}.ship_to_address ship ON stg.ship_to_code = ship.code AND stg.sell_to_customer_code = ship.customer_code AND stg.company_id = ship.company_id
+            LEFT JOIN {{ core_schema }}.ship_to_address ship ON stg.ship_to_address_code = ship.code AND stg.sell_to_customer_code = ship.customer_code AND stg.company_id = ship.company_id
             LEFT JOIN {{ core_schema }}.shipment_method sm ON stg.shipment_method_code = sm.code AND stg.company_id = sm.company_id
             LEFT JOIN {{ core_schema }}.location loc ON stg.location_code = loc.code AND stg.company_id = loc.company_id
             LEFT JOIN {{ core_schema }}.salesperson sp ON stg.salesperson_code = sp.code AND stg.company_id = sp.company_id

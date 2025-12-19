@@ -12,7 +12,7 @@ class SalesInvoiceHeader(StagingBase):
     shipment_date: Mapped[date] = mapped_column(Date, nullable=True)
     sell_to_customer_code: Mapped[str] = mapped_column(String(20), nullable=True)
     bill_to_customer_code: Mapped[str] = mapped_column(String(20), nullable=True)
-    ship_to_code: Mapped[str] = mapped_column(String(20), nullable=True)
+    ship_to_address_code: Mapped[str] = mapped_column(String(20), nullable=True)
     shipment_method_code: Mapped[str] = mapped_column(String(20), nullable=True)
     location_code: Mapped[str] = mapped_column(String(20), nullable=True)
     salesperson_code: Mapped[str] = mapped_column(String(20), nullable=True)
