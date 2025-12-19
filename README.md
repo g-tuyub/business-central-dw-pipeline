@@ -1,5 +1,6 @@
 # Herramienta de sincronización de Business Central a Data Warehouse en SQL Server
-#
+
+
 Solución empresarial que sincroniza datos de **Microsoft Dynamics 365 Business Central** a un **Data Warehouse** multiempresa
 implementado en **SQL Server**.
 
@@ -14,9 +15,6 @@ La solución incluye:
 - Orquestación completa del pipeline de sincronización mediante **Prefect 3**.
 - Ejecución de flujos de sincronización en contenedores **Docker**.
 
-
-[Diagrama de arquitectura general](docs/diagrams/architecture-diagram.png)
-
 ## *Stack* tecnológico
 
 - **Python 3.12+**
@@ -28,6 +26,8 @@ La solución incluye:
 - **Docker** (ejecución de flujos de datos en contenedores)
 - **Azure DevOps** (repositorio y **CI/CD**)
 
+## Arquitectura General
+![Diagrama de arquitectura general](docs/diagrams/architecture-diagram.png)
 
 ## ¿Cómo instalar para desarrollo local?
 
