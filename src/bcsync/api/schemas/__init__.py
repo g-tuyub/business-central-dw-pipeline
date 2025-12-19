@@ -15,3 +15,6 @@ from .master.ship_to_address import ShipToAddress
 from .master.shipment_method import ShipmentMethod
 from .master.vendor import Vendor
 from .master.vendor_posting_group import VendorPostingGroup
+from .transactions.customer_ledger_entry import  CustomerLedgerEntry
+from .transactions.sales_invoice_header import  SalesInvoiceHeader
+from .transactions.sales_invoice_line import SalesInvoiceLine

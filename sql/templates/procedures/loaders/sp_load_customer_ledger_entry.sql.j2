@@ -1,0 +1,219 @@
+CREATE OR ALTER PROCEDURE [{{ core_schema }}].[sp_load_customer_ledger_entry]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+{% include 'partials/common_constants.sql.j2' %}
+
+    DECLARE @merge_stats TABLE (action_type VARCHAR(10))
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- =========================================================================
+        -- 1. Ensure unknown member exists (PK is 'id', logic is @unknown_id = -1)
+        -- =========================================================================
+        IF NOT EXISTS (SELECT 1 FROM [{{ core_schema }}].[customer_ledger_entry] WHERE [id] = @unknown_id)
+            BEGIN
+                -- Activamos inserción manual en la columna Identity solo para el ID -1
+                SET IDENTITY_INSERT [{{ core_schema }}].[customer_ledger_entry] ON;
+
+                INSERT INTO [{{ core_schema }}].[customer_ledger_entry] (
+                    id, -- Surrogate Key explícita
+                    entry_no, -- Business Key
+                    posting_date, document_date, closed_at_date,
+                    document_no, document_type, external_document_no, applies_to_document_no,
+                    customer_code, customer_id,
+                    currency_code, currency_id,
+                    dimension_1_code, dimension_2_code, dimension_3_code, dimension_4_code,
+                    dimension_5_code, dimension_6_code, dimension_7_code, dimension_8_code,
+                    amount, original_amount, remaining_amount,
+                    debit_amount, credit_amount, sales_lcy, profit_lcy,
+                    [open], positive, reversed,
+                    closed_by_entry_no, transaction_no, reversed_by_entry_no, reversed_entry_no,
+                    system_id, company_id, system_created_at, system_modified_at,
+                    system_created_by_id, system_modified_by_id
+                )
+                VALUES (
+                    @unknown_id, -- id = -1
+                    0, -- entry_no dummy
+                    '1900-01-01', '1900-01-01', NULL,
+                    @unknown_text, @unknown_text, @unknown_text, @unknown_text,
+                    @unknown_text, @unknown_id, -- Customer Unknown
+                    @unknown_text, @unknown_id, -- Currency Unknown
+                    @unknown_text, @unknown_text, @unknown_text, @unknown_text,
+                    @unknown_text, @unknown_text, @unknown_text, @unknown_text,
+                    0, 0, 0,
+                    0, 0, 0, 0,
+                    0, 0, 0,
+                    0, 0, 0, 0,
+                    @null_uuid, @null_company_id, @min_system_datetime, @min_system_datetime,
+                    @null_uuid, @null_uuid
+                )
+
+                SET IDENTITY_INSERT [{{ core_schema }}].[customer_ledger_entry] OFF;
+            END;
+
+        -- =========================================================================
+        -- 2. Lookup & MERGE
+        -- =========================================================================
+        WITH source_data AS (
+            SELECT
+                stg.system_id,
+                stg.company_id,
+                stg.system_created_at,
+                stg.system_modified_at,
+                stg.system_created_by_id,
+                stg.system_modified_by_id,
+
+                stg.entry_no, -- Business Key
+
+                stg.posting_date,
+                stg.document_date,
+                stg.closed_at_date,
+                stg.document_no,
+                stg.document_type,
+                stg.external_document_no,
+                stg.applies_to_document_no, -- Corregido según tu modelo
+
+                -- Customer Lookup
+                stg.customer_code,
+                CASE
+                    WHEN stg.customer_code IS NULL THEN NULL
+                    WHEN cust.id IS NULL THEN @unknown_id
+                    ELSE cust.id
+                END AS customer_id,
+
+                -- Currency Lookup
+                stg.currency_code,
+                CASE
+                    WHEN stg.currency_code IS NULL THEN NULL
+                    WHEN cur.id IS NULL THEN @unknown_id
+                    ELSE cur.id
+                END AS currency_id,
+
+                -- Dimensions 1-8
+                stg.dimension_1_code, stg.dimension_2_code, stg.dimension_3_code, stg.dimension_4_code,
+                stg.dimension_5_code, stg.dimension_6_code, stg.dimension_7_code, stg.dimension_8_code,
+
+                -- Amounts
+                stg.amount,
+                stg.original_amount,
+                stg.remaining_amount,
+                stg.debit_amount,
+                stg.credit_amount,
+                stg.sales_lcy,
+                stg.profit_lcy,
+
+                -- Flags & Integers
+                stg.[open],
+                stg.positive,
+                stg.reversed,
+                stg.closed_by_entry_no,
+                stg.transaction_no,
+                stg.reversed_by_entry_no,
+                stg.reversed_entry_no
+
+            FROM {{staging_schema}}.customer_ledger_entry AS stg
+            -- Joins para resolver IDs
+            LEFT JOIN {{ core_schema }}.customer cust
+                ON stg.customer_code = cust.code AND stg.company_id = cust.company_id
+            LEFT JOIN {{ core_schema }}.currency cur
+                ON stg.currency_code = cur.code AND stg.company_id = cur.company_id
+        )
+        MERGE INTO {{ core_schema }}.customer_ledger_entry AS T
+        USING source_data AS S
+        -- Match por System ID + Company ID
+        ON (T.system_id = S.system_id AND T.company_id = S.company_id)
+
+        WHEN MATCHED AND S.system_modified_at > T.system_modified_at THEN
+            UPDATE SET
+                -- NO tocamos T.id (Surrogate Key)
+                T.system_modified_at = S.system_modified_at,
+                T.system_modified_by_id = S.system_modified_by_id,
+
+                T.entry_no = S.entry_no,
+                T.posting_date = S.posting_date,
+                T.document_date = S.document_date,
+                T.closed_at_date = S.closed_at_date,
+                T.document_no = S.document_no,
+                T.document_type = S.document_type,
+                T.external_document_no = S.external_document_no,
+                T.applies_to_document_no = S.applies_to_document_no,
+
+                T.customer_code = S.customer_code,
+                T.customer_id = S.customer_id,
+                T.currency_code = S.currency_code,
+                T.currency_id = S.currency_id,
+
+                T.dimension_1_code = S.dimension_1_code,
+                T.dimension_2_code = S.dimension_2_code,
+                T.dimension_3_code = S.dimension_3_code,
+                T.dimension_4_code = S.dimension_4_code,
+                T.dimension_5_code = S.dimension_5_code,
+                T.dimension_6_code = S.dimension_6_code,
+                T.dimension_7_code = S.dimension_7_code,
+                T.dimension_8_code = S.dimension_8_code,
+
+                T.amount = S.amount,
+                T.original_amount = S.original_amount,
+                T.remaining_amount = S.remaining_amount,
+                T.debit_amount = S.debit_amount,
+                T.credit_amount = S.credit_amount,
+                T.sales_lcy = S.sales_lcy,
+                T.profit_lcy = S.profit_lcy,
+
+                T.[open] = S.[open],
+                T.positive = S.positive,
+                T.reversed = S.reversed,
+                T.closed_by_entry_no = S.closed_by_entry_no,
+                T.transaction_no = S.transaction_no,
+                T.reversed_by_entry_no = S.reversed_by_entry_no,
+                T.reversed_entry_no = S.reversed_entry_no
+
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (
+                -- NO insertamos 'id', SQL Server lo genera (Identity)
+                entry_no, posting_date, document_date, closed_at_date,
+                document_no, document_type, external_document_no, applies_to_document_no,
+                customer_code, customer_id,
+                currency_code, currency_id,
+                dimension_1_code, dimension_2_code, dimension_3_code, dimension_4_code,
+                dimension_5_code, dimension_6_code, dimension_7_code, dimension_8_code,
+                amount, original_amount, remaining_amount,
+                debit_amount, credit_amount, sales_lcy, profit_lcy,
+                [open], positive, reversed,
+                closed_by_entry_no, transaction_no, reversed_by_entry_no, reversed_entry_no,
+                system_id, company_id, system_created_at, system_modified_at,
+                system_created_by_id, system_modified_by_id
+            )
+            VALUES (
+                S.entry_no, S.posting_date, S.document_date, S.closed_at_date,
+                S.document_no, S.document_type, S.external_document_no, S.applies_to_document_no,
+                S.customer_code, S.customer_id,
+                S.currency_code, S.currency_id,
+                S.dimension_1_code, S.dimension_2_code, S.dimension_3_code, S.dimension_4_code,
+                S.dimension_5_code, S.dimension_6_code, S.dimension_7_code, S.dimension_8_code,
+                S.amount, S.original_amount, S.remaining_amount,
+                S.debit_amount, S.credit_amount, S.sales_lcy, S.profit_lcy,
+                S.[open], S.positive, S.reversed,
+                S.closed_by_entry_no, S.transaction_no, S.reversed_by_entry_no, S.reversed_entry_no,
+                S.system_id, S.company_id, S.system_created_at, S.system_modified_at,
+                S.system_created_by_id, S.system_modified_by_id
+            )
+        OUTPUT $action into @merge_stats;
+
+        COMMIT TRANSACTION;
+
+        SELECT ISNULL(SUM(IIF(action_type = 'INSERT', 1, 0)), 0) AS rows_inserted,
+               ISNULL(SUM(IIF(action_type = 'UPDATE', 1, 0)), 0) AS rows_updated
+        FROM @merge_stats
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        THROW
+    END CATCH
+END;
+GO
